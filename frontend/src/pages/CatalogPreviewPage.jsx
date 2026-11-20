@@ -751,18 +751,18 @@ export function CatalogPreviewPage() {
                   />
                 ))}
 
-                {/* Full Catalog CTA */}
-                <div className="flex flex-col items-center justify-between gap-4 rounded-2xl border border-white/10 bg-[#131318] p-8 text-center sm:flex-row sm:text-left">
+                {/* Seamless Editorial Full Catalog Footer Band */}
+                <div className="flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-10 text-center sm:flex-row sm:text-left">
                   <div>
-                    <h2 className="font-editorial text-2xl font-semibold text-white">
+                    <h2 className="font-editorial text-2xl font-semibold text-[#F3EFE6]">
                       {t('exploreAllPrefix')} {(meta.total || 1055).toLocaleString('vi-VN')} {t('moviesUnit')}
                     </h2>
-                    <p className="mt-1 text-sm text-[#A59F95]">{t('exploreAllSub')}</p>
+                    <p className="mt-1 text-sm text-[#8C877E]">{t('exploreAllSub')}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => openGenreInGrid('')}
-                    className="rounded-full bg-white px-6 py-2.5 text-sm font-semibold text-[#0B0B0D] transition-transform hover:scale-[1.02] hover:bg-white/90"
+                    className="rounded-full bg-[#F3EFE6] px-6 py-2.5 text-xs font-semibold text-[#0B0B0D] transition-colors hover:bg-white"
                   >
                     {t('openFullCatalog')}
                   </button>
