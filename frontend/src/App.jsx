@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AdminLayout } from './components/AdminLayout';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LanguageProvider } from './context/LanguageContext';
 import { ToastProvider } from './context/ToastContext';
 import { CatalogPreviewPage } from './pages/CatalogPreviewPage';
 import { LoginPage } from './pages/LoginPage';
@@ -44,29 +45,31 @@ function AdminGuard({ children }) {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <ToastProvider>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/catalog" element={<CatalogPreviewPage />} />
-            <Route
-              path="/admin"
-              element={
-                <AdminGuard>
-                  <AdminLayout />
-                </AdminGuard>
-              }
-            >
-              <Route index element={<AdminDashboardPage />} />
-              <Route path="movies" element={<AdminMoviesPage />} />
-              <Route path="users" element={<AdminUsersPage />} />
-              <Route path="reviews" element={<AdminReviewsPage />} />
-            </Route>
-            <Route path="/" element={<Navigate to="/admin" replace />} />
-            <Route path="*" element={<Navigate to="/catalog" replace />} />
-          </Routes>
-        </ToastProvider>
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <ToastProvider>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/catalog" element={<CatalogPreviewPage />} />
+              <Route
+                path="/admin"
+                element={
+                  <AdminGuard>
+                    <AdminLayout />
+                  </AdminGuard>
+                }
+              >
+                <Route index element={<AdminDashboardPage />} />
+                <Route path="movies" element={<AdminMoviesPage />} />
+                <Route path="users" element={<AdminUsersPage />} />
+                <Route path="reviews" element={<AdminReviewsPage />} />
+              </Route>
+              <Route path="/" element={<Navigate to="/admin" replace />} />
+              <Route path="*" element={<Navigate to="/catalog" replace />} />
+            </Routes>
+          </ToastProvider>
+        </AuthProvider>
+      </LanguageProvider>
     </BrowserRouter>
   );
 }

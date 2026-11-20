@@ -26,6 +26,7 @@ from app.db.schemas import ensure_collections_and_indexes
 DATASET_PATH = BACKEND_DIR / "data" / "imdb_top_1000.csv"
 EXTRA_DATASET_PATH = BACKEND_DIR / "data" / "extra_imdb_movies.json"
 POSTER_OVERRIDES_PATH = BACKEND_DIR / "data" / "poster_overrides.json"
+OVERVIEW_VI_PATH = BACKEND_DIR / "data" / "overview_vi.json"
 
 # Real YouTube trailer video IDs for iconic films in the IMDb catalog
 CURATED_TRAILERS_BY_TITLE: dict[str, str] = {
@@ -303,6 +304,13 @@ def load_real_movies(limit: int) -> list[dict[str, Any]]:
         except Exception:
             poster_overrides = {}
 
+    overview_vi_map: dict[str, str] = {}
+    if OVERVIEW_VI_PATH.exists():
+        try:
+            overview_vi_map = json.loads(OVERVIEW_VI_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            overview_vi_map = {}
+
     movies: list[dict[str, Any]] = []
     used_slugs: set[str] = set()
     base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -349,6 +357,7 @@ def load_real_movies(limit: int) -> list[dict[str, Any]]:
                     "title": title,
                     "original_title": title,
                     "overview": (row.get("Overview") or "").strip() or f"{title} ({year})",
+                    "overview_i18n": {"vi": overview_vi_map[slug]} if slug in overview_vi_map else {},
                     "release_year": year,
                     "runtime_minutes": parse_runtime(row.get("Runtime") or ""),
                     "certificate": (row.get("Certificate") or "").strip() or None,
@@ -401,6 +410,7 @@ def load_real_movies(limit: int) -> list[dict[str, Any]]:
                     "title": title,
                     "original_title": title,
                     "overview": (item.get("plot") or "").strip() or f"{title} ({year})",
+                    "overview_i18n": {"vi": overview_vi_map[slug]} if slug in overview_vi_map else {},
                     "release_year": year,
                     "runtime_minutes": parse_runtime(str(item.get("runtime") or "110")),
                     "certificate": "PG-13",
@@ -508,6 +518,7 @@ async def seed_database() -> dict[str, int]:
                         "title": m["title"],
                         "original_title": m["original_title"],
                         "overview": m["overview"],
+                        "overview_i18n": m.get("overview_i18n", {}),
                         "release_year": m["release_year"],
                         "runtime_minutes": m["runtime_minutes"],
                         "certificate": m["certificate"],

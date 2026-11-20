@@ -26,6 +26,7 @@ def serialize_movie(doc: dict[str, Any]) -> dict[str, Any]:
         "title": doc["title"],
         "original_title": doc.get("original_title"),
         "overview": doc.get("overview", ""),
+        "overview_i18n": dict(doc.get("overview_i18n") or {}),
         "release_year": int(doc["release_year"]),
         "runtime_minutes": int(doc["runtime_minutes"]),
         "certificate": doc.get("certificate"),

@@ -110,6 +110,7 @@ class MovieOut(BaseModel):
     title: str
     original_title: str | None = None
     overview: str
+    overview_i18n: dict[str, str] = Field(default_factory=dict)
     release_year: int
     runtime_minutes: int
     certificate: str | None = None

@@ -92,6 +92,8 @@ export const api = {
   listMovies: (params) => request('/movies', { params }),
   getMovie: (movieId, trackView = true) =>
     request(`/movies/${movieId}`, { params: { track_view: trackView } }),
+  translateMovie: (movieId, lang) =>
+    request(`/movies/${movieId}/translate`, { params: { lang } }),
   createMovie: (payload) => request('/movies', { method: 'POST', body: payload }),
   updateMovie: (movieId, payload) => request(`/movies/${movieId}`, { method: 'PUT', body: payload }),
   softDeleteMovie: (movieId) => request(`/movies/${movieId}`, { method: 'DELETE' }),

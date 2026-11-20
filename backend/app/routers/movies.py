@@ -15,7 +15,7 @@ from app.models.movie import (
     MovieUpdateRequest,
     PaginatedMoviesResponse,
 )
-from app.services import movie_service, poster_service
+from app.services import movie_service, poster_service, translate_service
 
 router = APIRouter(prefix="/movies", tags=["Movies"])
 
@@ -58,6 +58,15 @@ async def get_movies(
     )
     response.headers["X-Cache"] = cache_status
     return data
+
+
+@router.get("/{movie_id}/translate")
+async def translate_movie_overview(
+    movie_id: str,
+    lang: str = Query(default="vi", pattern="^(vi|en|ja|ko|fr|zh)$"),
+    db: AsyncDatabase = Depends(get_db),
+) -> dict[str, Any]:
+    return await translate_service.get_or_translate_movie_overview(db, movie_id, lang)
 
 
 @router.get("/{movie_id}/poster")

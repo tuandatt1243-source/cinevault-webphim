@@ -73,6 +73,7 @@ COLLECTION_VALIDATORS: dict[str, dict[str, Any]] = {
                 "title": {"bsonType": "string", "minLength": 1, "maxLength": 250},
                 "original_title": {"bsonType": ["string", "null"], "maxLength": 250},
                 "overview": {"bsonType": "string", "maxLength": 4000},
+                "overview_i18n": {"bsonType": ["object", "null"]},
                 "release_year": {"bsonType": "int", "minimum": 1888, "maximum": 2100},
                 "runtime_minutes": {"bsonType": "int", "minimum": 1, "maximum": 1000},
                 "certificate": {"bsonType": ["string", "null"], "maxLength": 32},

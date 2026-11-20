@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { ExternalLink, Film, Play, X } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export function extractYouTubeId(url) {
   if (!url || typeof url !== 'string') return null;
@@ -12,6 +13,8 @@ export function extractYouTubeId(url) {
 }
 
 export function TrailerModal({ open, movie, onClose }) {
+  const { t, tGenre, formatRuntime } = useLanguage();
+
   useEffect(() => {
     if (!open) return;
     const handleEsc = (e) => {
@@ -36,7 +39,7 @@ export function TrailerModal({ open, movie, onClose }) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/92 p-4 backdrop-blur-md"
       role="dialog"
       aria-modal="true"
-      aria-label={`Trailer phim ${movie.title}`}
+      aria-label={`Trailer ${movie.title}`}
     >
       <div className="fixed inset-0" onClick={onClose} />
 
@@ -63,7 +66,7 @@ export function TrailerModal({ open, movie, onClose }) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 border border-[#F3EFE6]/16 px-3 py-1.5 text-xs text-[#A59F95] transition-colors hover:border-[#F3EFE6]/45 hover:text-[#F3EFE6]"
             >
-              <span>Mở trên YouTube</span>
+              <span>{t('openYoutube')}</span>
               <ExternalLink className="h-3 w-3" aria-hidden="true" />
             </a>
             <button
@@ -89,14 +92,14 @@ export function TrailerModal({ open, movie, onClose }) {
           ) : (
             <div className="flex h-full flex-col items-center justify-center p-8 text-center">
               <Film className="mb-3 h-10 w-10 text-[#D63628]" aria-hidden="true" />
-              <p className="font-editorial text-2xl text-[#F3EFE6]">Chưa có video trailer nhúng</p>
+              <p className="font-editorial text-2xl text-[#F3EFE6]">Trailer</p>
               <a
                 href={youtubeSearchUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-5 inline-flex items-center gap-2 bg-[#D63628] px-5 py-2.5 text-xs font-semibold text-[#F3EFE6] hover:bg-[#E54739]"
               >
-                <span>Tìm Trailer trên YouTube</span>
+                <span>{t('openYoutube')}</span>
                 <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
               </a>
             </div>
@@ -105,17 +108,19 @@ export function TrailerModal({ open, movie, onClose }) {
 
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[#F3EFE6]/10 bg-[#101014] px-5 py-3 text-xs text-[#746F67]">
           <div className="flex flex-wrap items-center gap-3">
-            <span>Đạo diễn: {movie.directors?.join(', ') || '—'}</span>
+            <span>
+              {t('director')}: {movie.directors?.join(', ') || '—'}
+            </span>
             <span>·</span>
-            <span>{movie.runtime_minutes || 120} phút</span>
+            <span>{formatRuntime(movie.runtime_minutes || 120)}</span>
             {movie.genres?.length > 0 && (
               <>
                 <span>·</span>
-                <span className="text-[#A59F95]">{movie.genres.join(', ')}</span>
+                <span className="text-[#A59F95]">{movie.genres.map(tGenre).join(', ')}</span>
               </>
             )}
           </div>
-          <span>Nhấn ESC để đóng</span>
+          <span>{t('escToClose')}</span>
         </div>
       </div>
     </div>
