@@ -61,6 +61,7 @@ def serialize_review(doc: dict[str, Any]) -> dict[str, Any]:
         "movie_poster_url": doc.get("movie_poster_url"),
         "rating": int(doc["rating"]),
         "comment": doc.get("comment", ""),
+        "is_spoiler": bool(doc.get("is_spoiler", False)),
         "is_hidden": bool(doc.get("is_hidden", False)),
         "created_at": doc["created_at"],
         "updated_at": doc["updated_at"],

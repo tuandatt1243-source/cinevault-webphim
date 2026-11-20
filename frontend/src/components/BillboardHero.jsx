@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Bookmark,
   BookmarkCheck,
@@ -11,19 +11,21 @@ import {
   VolumeX,
 } from 'lucide-react';
 import { useLanguage, useTranslatedOverview } from '../context/LanguageContext';
+import { extractAmbientColor } from '../utils/ambientColor';
 import { extractYouTubeId } from './TrailerModal';
 import { YouTubeBackdropPlayer } from './YouTubeBackdropPlayer';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 /**
- * Netflix-inspired 16:9 Rounded Cinema Billboard Hero with auto-playing HD Trailer backdrop,
- * instant mute/unmute & pause controls, translated synopsis, and slide controls.
+ * Netflix × Apple TV+ 16:9 Rounded Cinema Billboard Hero with auto-playing HD Trailer backdrop,
+ * Ambient Cinema Glow extracted from the active film, subtle cursor parallax, and smooth controls.
  */
 export function BillboardHero({
   movies = [],
   activeIndex = 0,
   onSelectIndex,
+  onAmbientColorChange,
   pausedExternal = false,
   inWatchlist,
   onPlayTrailer,
@@ -33,28 +35,74 @@ export function BillboardHero({
   const { t, tGenre, formatRuntime } = useLanguage();
   const [muted, setMuted] = useState(true);
   const [userPaused, setUserPaused] = useState(false);
+  const [ambient, setAmbient] = useState({ r: 214, g: 54, b: 40 });
+  const [parallax, setParallax] = useState({ x: 0, y: 0 });
 
   const movie = movies[activeIndex] || movies[0] || null;
   const synopsis = useTranslatedOverview(movie);
+
+  useEffect(() => {
+    if (!movie?.id) return;
+    let cancelled = false;
+    extractAmbientColor(movie.id).then((rgb) => {
+      if (cancelled) return;
+      setAmbient(rgb);
+      onAmbientColorChange?.(rgb);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [movie?.id, onAmbientColorChange]);
 
   if (!movie) return null;
 
   const videoId = extractYouTubeId(movie.trailer_url);
   const fallbackPoster = `${API_BASE}/movies/${movie.id}/poster`;
 
-  return (
-    <section className="mx-auto max-w-[1440px] px-4 pt-5 sm:px-8">
-      <div className="relative min-h-[460px] h-[62vh] max-h-[640px] w-full overflow-hidden rounded-2xl border border-[#F3EFE6]/12 bg-[#0E0E12] shadow-[0_30px_80px_rgba(0,0,0,0.75)]">
-        {/* Auto-playing HD 1080p Trailer Backdrop */}
-        <YouTubeBackdropPlayer
-          videoId={videoId}
-          posterFallback={fallbackPoster}
-          title={movie.title}
-          muted={muted}
-          paused={pausedExternal || userPaused}
-        />
+  const handleMouseMove = (e) => {
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    if (reduced) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const nx = ((e.clientX - rect.left) / rect.width - 0.5) * 10;
+    const ny = ((e.clientY - rect.top) / rect.height - 0.5) * 6;
+    setParallax({ x: -nx, y: -ny });
+  };
 
-        {/* Cinema Vignette Gradients (left + bottom) */}
+  return (
+    <section className="relative mx-auto max-w-[1440px] px-4 pt-5 sm:px-8">
+      {/* Ambient Cinema Glow Aura (smoothly adapts to active movie palette) */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -inset-x-8 -top-12 -bottom-16 -z-10 blur-3xl transition-all duration-1000"
+        style={{
+          background: `radial-gradient(65% 55% at 50% 35%, rgba(${ambient.r}, ${ambient.g}, ${ambient.b}, 0.34) 0%, rgba(${ambient.r}, ${ambient.g}, ${ambient.b}, 0.08) 55%, rgba(11, 11, 13, 0) 100%)`,
+        }}
+      />
+
+      <div
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setParallax({ x: 0, y: 0 })}
+        className="relative h-[62vh] max-h-[640px] min-h-[460px] w-full overflow-hidden rounded-2xl border bg-[#0E0E12] transition-colors duration-1000"
+        style={{
+          borderColor: `rgba(${ambient.r}, ${ambient.g}, ${ambient.b}, 0.32)`,
+          boxShadow: `0 30px 90px rgba(0, 0, 0, 0.78), 0 0 60px rgba(${ambient.r}, ${ambient.g}, ${ambient.b}, 0.16)`,
+        }}
+      >
+        {/* Auto-playing HD 1080p Trailer Backdrop with Subtle Parallax */}
+        <div
+          className="absolute inset-0 transition-transform duration-500 ease-out"
+          style={{ transform: `translate3d(${parallax.x}px, ${parallax.y}px, 0) scale(1.03)` }}
+        >
+          <YouTubeBackdropPlayer
+            videoId={videoId}
+            posterFallback={fallbackPoster}
+            title={movie.title}
+            muted={muted}
+            paused={pausedExternal || userPaused}
+          />
+        </div>
+
+        {/* Cinema Vignette Gradients (left + bottom + subtle ambient tint) */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
@@ -66,7 +114,7 @@ export function BillboardHero({
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              'linear-gradient(180deg, rgba(10,10,13,0.35) 0%, rgba(10,10,13,0.08) 40%, rgba(10,10,13,0.95) 100%)',
+              'linear-gradient(180deg, rgba(10,10,13,0.32) 0%, rgba(10,10,13,0.06) 40%, rgba(10,10,13,0.96) 100%)',
           }}
         />
 
@@ -125,6 +173,11 @@ export function BillboardHero({
                 <Star className="h-3.5 w-3.5 fill-[#E0A43B]" aria-hidden="true" />
                 {movie.avg_rating.toFixed(1)}
               </span>
+              {movie.imdb_rating && (
+                <span className="rounded bg-[#E0A43B]/20 px-1.5 py-0.5 font-mono-ledger text-[11px] font-semibold text-[#E0A43B]">
+                  IMDb {movie.imdb_rating.toFixed(1)}
+                </span>
+              )}
               <span className="text-white/40">•</span>
               <span>{movie.genres?.slice(0, 2).map(tGenre).join(' / ')}</span>
               <span className="text-white/40">•</span>
@@ -157,7 +210,7 @@ export function BillboardHero({
               )}
             </div>
 
-            {/* Netflix-style Pill Buttons */}
+            {/* Pill Buttons */}
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <button
                 type="button"

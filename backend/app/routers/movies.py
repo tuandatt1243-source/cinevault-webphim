@@ -9,11 +9,14 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.core.database import get_db
 from app.core.security import get_optional_user, require_admin
 from app.models.movie import (
+    DecadeFacet,
     GenreFacet,
     MovieCreateRequest,
+    MovieInsightsOut,
     MovieOut,
     MovieUpdateRequest,
     PaginatedMoviesResponse,
+    PersonSpotlightOut,
 )
 from app.services import movie_service, poster_service, translate_service
 
@@ -25,13 +28,55 @@ async def get_genres(db: AsyncDatabase = Depends(get_db)) -> list[dict[str, Any]
     return await movie_service.list_genres_facets(db)
 
 
+@router.get("/decades", response_model=list[DecadeFacet])
+async def get_decades(db: AsyncDatabase = Depends(get_db)) -> list[dict[str, Any]]:
+    return await movie_service.list_decades_showcase(db)
+
+
+@router.get("/roulette", response_model=list[MovieOut])
+async def get_roulette_movies(
+    mood: str | None = Query(
+        default=None,
+        pattern="^(mindbend|emotional|adrenaline|quick|classic|dark|animation|any)$",
+    ),
+    max_runtime: int | None = Query(default=None, ge=30, le=400),
+    limit: int = Query(default=12, ge=1, le=30),
+    db: AsyncDatabase = Depends(get_db),
+) -> list[dict[str, Any]]:
+    effective_mood = None if mood == "any" else mood
+    return await movie_service.roulette_movies(
+        db,
+        mood=effective_mood,
+        max_runtime=max_runtime,
+        limit=limit,
+    )
+
+
+@router.get("/person", response_model=PersonSpotlightOut)
+async def get_person_spotlight(
+    name: str = Query(min_length=1, max_length=120),
+    role: str = Query(default="director", pattern="^(director|actor)$"),
+    db: AsyncDatabase = Depends(get_db),
+) -> dict[str, Any]:
+    return await movie_service.get_person_spotlight(db, name=name, role=role)
+
+
 @router.get("", response_model=PaginatedMoviesResponse)
 async def get_movies(
     response: Response,
     q: str | None = Query(default=None, max_length=120),
     genre: str | None = Query(default=None, max_length=64),
+    genres: str | None = Query(default=None, max_length=200),
     year: int | None = Query(default=None, ge=1888, le=2100),
+    decade: int | None = Query(default=None, ge=1920, le=2020),
+    year_from: int | None = Query(default=None, ge=1888, le=2100),
+    year_to: int | None = Query(default=None, ge=1888, le=2100),
+    max_runtime: int | None = Query(default=None, ge=30, le=600),
     min_rating: float | None = Query(default=None, ge=0.0, le=5.0),
+    min_imdb: float | None = Query(default=None, ge=0.0, le=10.0),
+    director: str | None = Query(default=None, max_length=120),
+    actor: str | None = Query(default=None, max_length=120),
+    has_trailer: bool | None = Query(default=None),
     sort: str = Query(default="rating", pattern="^(newest|created|rating|views|title|year_asc)$"),
     status_filter: str = Query(default="active", alias="status", pattern="^(active|deleted|all)$"),
     page: int = Query(default=1, ge=1, le=500),
@@ -48,8 +93,17 @@ async def get_movies(
         db,
         q=q,
         genre=genre,
+        genres=genres,
         year=year,
+        decade=decade,
+        year_from=year_from,
+        year_to=year_to,
+        max_runtime=max_runtime,
         min_rating=min_rating,
+        min_imdb=min_imdb,
+        director=director,
+        actor=actor,
+        has_trailer=has_trailer,
         sort=sort,
         status_filter=effective_status,
         include_deleted=include_deleted,
@@ -58,6 +112,14 @@ async def get_movies(
     )
     response.headers["X-Cache"] = cache_status
     return data
+
+
+@router.get("/{movie_id}/insights", response_model=MovieInsightsOut)
+async def get_movie_insights(
+    movie_id: str,
+    db: AsyncDatabase = Depends(get_db),
+) -> dict[str, Any]:
+    return await movie_service.get_movie_insights(db, movie_id)
 
 
 @router.get("/{movie_id}/translate")

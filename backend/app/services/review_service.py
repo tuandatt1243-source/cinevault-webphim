@@ -132,6 +132,7 @@ async def upsert_review(
             "$set": {
                 "rating": int(payload.rating),
                 "comment": payload.comment,
+                "is_spoiler": bool(payload.is_spoiler),
                 "updated_at": now,
             },
             "$setOnInsert": {

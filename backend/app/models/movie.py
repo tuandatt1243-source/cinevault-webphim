@@ -141,3 +141,38 @@ class PaginatedMoviesResponse(BaseModel):
 class GenreFacet(BaseModel):
     name: str
     count: int
+
+
+class RatingBucket(BaseModel):
+    stars: int
+    count: int
+    percent: float
+
+
+class MovieInsightsOut(BaseModel):
+    movie_id: str
+    total_reviews: int
+    avg_rating: float
+    consensus: str
+    histogram: list[RatingBucket]
+    more_from_director: list[MovieOut]
+
+
+class DecadeFacet(BaseModel):
+    decade: int
+    label: str
+    count: int
+    avg_rating: float
+    top_directors: list[str]
+    sample_movies: list[MovieOut]
+
+
+class PersonSpotlightOut(BaseModel):
+    name: str
+    role: str
+    movie_count: int
+    avg_rating: float
+    avg_imdb: float | None = None
+    year_span: str
+    top_genres: list[str]
+    movies: list[MovieOut]

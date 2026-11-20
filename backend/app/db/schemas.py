@@ -125,6 +125,7 @@ COLLECTION_VALIDATORS: dict[str, dict[str, Any]] = {
                 "movie_id": {"bsonType": "objectId"},
                 "rating": {"bsonType": "int", "minimum": 1, "maximum": 5},
                 "comment": {"bsonType": "string", "maxLength": 2000},
+                "is_spoiler": {"bsonType": "bool"},
                 "is_hidden": {"bsonType": "bool"},
                 "created_at": {"bsonType": "date"},
                 "updated_at": {"bsonType": "date"},

@@ -89,6 +89,11 @@ export const api = {
 
   // Movies
   getGenres: () => request('/movies/genres'),
+  getDecades: () => request('/movies/decades'),
+  getRoulette: (params) => request('/movies/roulette', { params }),
+  getPersonSpotlight: (name, role = 'director') =>
+    request('/movies/person', { params: { name, role } }),
+  getMovieInsights: (movieId) => request(`/movies/${movieId}/insights`),
   listMovies: (params) => request('/movies', { params }),
   getMovie: (movieId, trackView = true) =>
     request(`/movies/${movieId}`, { params: { track_view: trackView } }),

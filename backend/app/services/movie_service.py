@@ -34,8 +34,17 @@ async def list_movies(
     *,
     q: str | None = None,
     genre: str | None = None,
+    genres: str | None = None,
     year: int | None = None,
+    decade: int | None = None,
+    year_from: int | None = None,
+    year_to: int | None = None,
+    max_runtime: int | None = None,
     min_rating: float | None = None,
+    min_imdb: float | None = None,
+    director: str | None = None,
+    actor: str | None = None,
+    has_trailer: bool | None = None,
     sort: str = "rating",
     status_filter: str = "active",
     include_deleted: bool = False,
@@ -49,7 +58,11 @@ async def list_movies(
     cache_status = "BYPASS"
     cache_key: str | None = None
     if not include_deleted and status_filter == "active":
-        raw_sig = f"q={cleaned_q}|g={genre}|y={year}|r={min_rating}|s={sort}|p={page}|l={limit}"
+        raw_sig = (
+            f"q={cleaned_q}|g={genre}|gs={genres}|y={year}|dec={decade}|yf={year_from}|yt={year_to}|"
+            f"mr={max_runtime}|r={min_rating}|im={min_imdb}|d={director}|a={actor}|tr={has_trailer}|"
+            f"s={sort}|p={page}|l={limit}"
+        )
         cache_key = "movies:list:" + hashlib.md5(raw_sig.encode("utf-8")).hexdigest()
         try:
             cached, cache_status = await cache_provider.get_json(cache_key)
@@ -69,10 +82,41 @@ async def list_movies(
 
     if genre and genre.strip():
         base_filter["genres"] = genre.strip()
+    elif genres and genres.strip():
+        genre_list = [g.strip() for g in genres.split(",") if g.strip()][:8]
+        if genre_list:
+            base_filter["genres"] = {"$in": genre_list}
+
     if year is not None:
         base_filter["release_year"] = int(year)
+    else:
+        year_range: dict[str, int] = {}
+        if decade is not None:
+            dec = int(decade)
+            if dec <= 1950:
+                year_range["$lte"] = 1959
+            else:
+                year_range["$gte"] = dec
+                year_range["$lte"] = dec + 9
+        if year_from is not None:
+            year_range["$gte"] = int(year_from)
+        if year_to is not None:
+            year_range["$lte"] = int(year_to)
+        if year_range:
+            base_filter["release_year"] = year_range
+
+    if max_runtime is not None:
+        base_filter["runtime_minutes"] = {"$lte": int(max_runtime)}
     if min_rating is not None:
         base_filter["avg_rating"] = {"$gte": float(min_rating)}
+    if min_imdb is not None:
+        base_filter["imdb_rating"] = {"$gte": float(min_imdb)}
+    if director and director.strip():
+        base_filter["directors"] = {"$regex": f"^{safe_regex_pattern(director.strip())}$", "$options": "i"}
+    if actor and actor.strip():
+        base_filter["cast"] = {"$regex": f"^{safe_regex_pattern(actor.strip())}$", "$options": "i"}
+    if has_trailer is True:
+        base_filter["trailer_url"] = {"$type": "string", "$ne": ""}
 
     sort_spec = ALLOWED_SORTS.get(sort, ALLOWED_SORTS["rating"])
     skip = (page - 1) * limit
@@ -211,6 +255,232 @@ async def list_genres_facets(db: AsyncDatabase) -> list[dict[str, Any]]:
     ]
     cursor = await db.movies.aggregate(pipeline)
     return await cursor.to_list(length=100)
+
+
+MOOD_FILTERS: dict[str, dict[str, Any]] = {
+    "mindbend": {"genres": {"$in": ["Sci-Fi", "Mystery", "Thriller"]}, "avg_rating": {"$gte": 3.8}},
+    "emotional": {"genres": {"$in": ["Drama", "Romance", "Biography"]}, "avg_rating": {"$gte": 4.0}},
+    "adrenaline": {"genres": {"$in": ["Action", "Adventure", "War"]}},
+    "quick": {"runtime_minutes": {"$lte": 100}},
+    "classic": {"release_year": {"$lte": 1999}, "imdb_rating": {"$gte": 8.0}},
+    "dark": {"genres": {"$in": ["Horror", "Crime", "Film-Noir", "Thriller"]}},
+    "animation": {"genres": {"$in": ["Animation", "Family", "Fantasy"]}},
+}
+
+
+async def roulette_movies(
+    db: AsyncDatabase,
+    *,
+    mood: str | None = None,
+    max_runtime: int | None = None,
+    limit: int = 12,
+) -> list[dict[str, Any]]:
+    """Return randomized matching movies using MongoDB $sample aggregation for Tito Roulette & Reels."""
+    match_filter: dict[str, Any] = {
+        "is_deleted": False,
+        "trailer_url": {"$type": "string", "$ne": ""},
+    }
+    if mood and mood in MOOD_FILTERS:
+        match_filter.update(MOOD_FILTERS[mood])
+    if max_runtime is not None:
+        existing_rt = match_filter.get("runtime_minutes")
+        if isinstance(existing_rt, dict) and "$lte" in existing_rt:
+            match_filter["runtime_minutes"] = {"$lte": min(int(max_runtime), int(existing_rt["$lte"]))}
+        else:
+            match_filter["runtime_minutes"] = {"$lte": int(max_runtime)}
+
+    pipeline = [
+        {"$match": match_filter},
+        {"$sample": {"size": max(1, min(limit, 30))}},
+    ]
+    cursor = await db.movies.aggregate(pipeline)
+    docs = await cursor.to_list(length=limit)
+
+    if not docs:
+        fallback_cursor = await db.movies.aggregate(
+            [
+                {"$match": {"is_deleted": False}},
+                {"$sample": {"size": max(1, min(limit, 30))}},
+            ]
+        )
+        docs = await fallback_cursor.to_list(length=limit)
+
+    return [serialize_movie(d) for d in docs]
+
+
+async def list_decades_showcase(db: AsyncDatabase) -> list[dict[str, Any]]:
+    """Aggregate movies into cinema eras (1920s–50s through 2020s) for Cinema Time Machine."""
+    pipeline = [
+        {"$match": {"is_deleted": False}},
+        {
+            "$addFields": {
+                "era_decade": {
+                    "$cond": [
+                        {"$lte": ["$release_year", 1959]},
+                        1950,
+                        {"$multiply": [{"$floor": {"$divide": ["$release_year", 10]}}, 10]},
+                    ]
+                }
+            }
+        },
+        {"$sort": {"views_count": -1, "avg_rating": -1}},
+        {
+            "$group": {
+                "_id": "$era_decade",
+                "count": {"$sum": 1},
+                "avg_rating": {"$avg": "$avg_rating"},
+                "movies": {"$push": "$$ROOT"},
+                "all_directors": {"$push": "$directors"},
+            }
+        },
+        {"$sort": {"_id": -1}},
+    ]
+    cursor = await db.movies.aggregate(pipeline)
+    groups = await cursor.to_list(length=20)
+
+    result: list[dict[str, Any]] = []
+    for grp in groups:
+        dec = int(grp["_id"])
+        label = "1920s–1950s" if dec <= 1950 else f"{dec}s"
+
+        director_counts: dict[str, int] = {}
+        for d_list in grp.get("all_directors") or []:
+            for d_name in d_list or []:
+                if d_name:
+                    director_counts[d_name] = director_counts.get(d_name, 0) + 1
+        top_directors = [
+            name for name, _ in sorted(director_counts.items(), key=lambda kv: (-kv[1], kv[0]))[:4]
+        ]
+
+        sample_docs = (grp.get("movies") or [])[:10]
+        result.append(
+            {
+                "decade": dec,
+                "label": label,
+                "count": int(grp["count"]),
+                "avg_rating": round(float(grp.get("avg_rating") or 0.0), 2),
+                "top_directors": top_directors,
+                "sample_movies": [serialize_movie(d) for d in sample_docs],
+            }
+        )
+    return result
+
+
+async def get_movie_insights(db: AsyncDatabase, movie_id_str: str) -> dict[str, Any]:
+    """Compute Letterboxd-style 5-star Rating Histogram & same-director films via MongoDB Aggregation."""
+    movie_oid = parse_object_id(movie_id_str, "movie_id")
+    movie = await db.movies.find_one({"_id": movie_oid, "is_deleted": False})
+    if movie is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Movie not found.")
+
+    hist_pipeline = [
+        {"$match": {"movie_id": movie_oid, "is_hidden": False}},
+        {"$group": {"_id": "$rating", "count": {"$sum": 1}}},
+    ]
+    cursor = await db.reviews.aggregate(hist_pipeline)
+    raw_buckets = await cursor.to_list(length=10)
+    counts_by_star = {int(b["_id"]): int(b["count"]) for b in raw_buckets if b.get("_id") is not None}
+    total_reviews = sum(counts_by_star.values())
+
+    histogram = []
+    for star in (5, 4, 3, 2, 1):
+        cnt = counts_by_star.get(star, 0)
+        pct = round((cnt / total_reviews) * 100.0, 1) if total_reviews > 0 else 0.0
+        histogram.append({"stars": star, "count": cnt, "percent": pct})
+
+    avg_rating = round(float(movie.get("avg_rating", 0.0)), 2)
+    high_ratio = ((counts_by_star.get(5, 0) + counts_by_star.get(4, 0)) / total_reviews) if total_reviews else 0.0
+    low_ratio = ((counts_by_star.get(1, 0) + counts_by_star.get(2, 0)) / total_reviews) if total_reviews else 0.0
+
+    if total_reviews < 3:
+        consensus = "emerging"
+    elif avg_rating >= 4.2 and high_ratio >= 0.78:
+        consensus = "acclaimed"
+    elif low_ratio >= 0.25 and high_ratio >= 0.45:
+        consensus = "divisive"
+    elif avg_rating >= 3.6:
+        consensus = "favorable"
+    else:
+        consensus = "mixed"
+
+    more_from_director: list[dict[str, Any]] = []
+    directors = movie.get("directors") or []
+    if directors:
+        dir_cursor = (
+            db.movies.find(
+                {
+                    "_id": {"$ne": movie_oid},
+                    "is_deleted": False,
+                    "directors": {"$in": directors[:2]},
+                }
+            )
+            .sort([("avg_rating", DESCENDING), ("views_count", DESCENDING)])
+            .limit(6)
+        )
+        dir_docs = await dir_cursor.to_list(length=6)
+        more_from_director = [serialize_movie(d) for d in dir_docs]
+
+    return {
+        "movie_id": movie_id_str,
+        "total_reviews": total_reviews,
+        "avg_rating": avg_rating,
+        "consensus": consensus,
+        "histogram": histogram,
+        "more_from_director": more_from_director,
+    }
+
+
+async def get_person_spotlight(db: AsyncDatabase, *, name: str, role: str = "director") -> dict[str, Any]:
+    """Return filmography and career metrics for a director or actor from MongoDB."""
+    cleaned = sanitize_search_text(name)
+    if not cleaned:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Person name is required.")
+
+    field = "directors" if role == "director" else "cast"
+    pattern = f"^{safe_regex_pattern(cleaned)}$"
+    docs = (
+        await db.movies.find({"is_deleted": False, field: {"$regex": pattern, "$options": "i"}})
+        .sort([("avg_rating", DESCENDING), ("release_year", DESCENDING)])
+        .limit(60)
+        .to_list(length=60)
+    )
+    if not docs:
+        # Graceful substring fallback
+        docs = (
+            await db.movies.find({"is_deleted": False, field: {"$regex": safe_regex_pattern(cleaned), "$options": "i"}})
+            .sort([("avg_rating", DESCENDING), ("release_year", DESCENDING)])
+            .limit(60)
+            .to_list(length=60)
+        )
+
+    movie_count = len(docs)
+    avg_rating = round(sum(float(d.get("avg_rating", 0.0)) for d in docs) / movie_count, 2) if movie_count else 0.0
+    imdb_vals = [float(d["imdb_rating"]) for d in docs if d.get("imdb_rating") is not None]
+    avg_imdb = round(sum(imdb_vals) / len(imdb_vals), 2) if imdb_vals else None
+
+    years = [int(d["release_year"]) for d in docs if d.get("release_year")]
+    if years:
+        min_y, max_y = min(years), max(years)
+        year_span = str(min_y) if min_y == max_y else f"{min_y}–{max_y}"
+    else:
+        year_span = "—"
+
+    genre_counts: dict[str, int] = {}
+    for d in docs:
+        for g in d.get("genres") or []:
+            genre_counts[g] = genre_counts.get(g, 0) + 1
+    top_genres = [g for g, _ in sorted(genre_counts.items(), key=lambda kv: (-kv[1], kv[0]))[:4]]
+
+    return {
+        "name": cleaned,
+        "role": "director" if role == "director" else "actor",
+        "movie_count": movie_count,
+        "avg_rating": avg_rating,
+        "avg_imdb": avg_imdb,
+        "year_span": year_span,
+        "top_genres": top_genres,
+        "movies": [serialize_movie(d) for d in docs],
+    }
 
 
 async def create_movie(db: AsyncDatabase, payload: MovieCreateRequest) -> dict[str, Any]:

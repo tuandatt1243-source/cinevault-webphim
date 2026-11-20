@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Bookmark,
   BookmarkCheck,
   ChevronLeft,
   ChevronRight,
+  Dice5,
   LogOut,
   Play,
   Search,
@@ -14,10 +15,16 @@ import {
 } from 'lucide-react';
 import { api } from '../api/client';
 import { BillboardHero } from '../components/BillboardHero';
+import { CinemaTimeline } from '../components/CinemaTimeline';
+import { CommandPalette } from '../components/CommandPalette';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { MoodTunerBar } from '../components/MoodTunerBar';
 import { MovieDetailModal } from '../components/MovieDetailModal';
 import { MovieRow } from '../components/MovieRow';
+import { PersonSpotlightDrawer } from '../components/PersonSpotlightDrawer';
 import { PosterImage } from '../components/PosterImage';
+import { ReelsView } from '../components/ReelsView';
+import { TitoRouletteModal } from '../components/TitoRouletteModal';
 import { TrailerModal } from '../components/TrailerModal';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -29,10 +36,18 @@ export function CatalogPreviewPage() {
   const { user, logout, refreshUser } = useAuth();
   const { t, tGenre, formatRuntime } = useLanguage();
   const { pushToast } = useToast();
+  const navigate = useNavigate();
 
-  // Top nav views: home (Netflix rows) | browse (full 1,055 grid) | popular | watchlist
+  // Top nav views: home | reels | browse | popular | watchlist
   const [view, setView] = useState('home');
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [ambientRgb, setAmbientRgb] = useState({ r: 214, g: 54, b: 40 });
+
+  // Signature interactive overlays
+  const [cmdOpen, setCmdOpen] = useState(false);
+  const [rouletteOpen, setRouletteOpen] = useState(false);
+  const [rouletteMood, setRouletteMood] = useState('any');
+  const [spotlightPerson, setSpotlightPerson] = useState(null);
 
   // Netflix Home rows state
   const [billboardMovies, setBillboardMovies] = useState([]);
@@ -41,7 +56,7 @@ export function CatalogPreviewPage() {
   const [genreRows, setGenreRows] = useState({});
   const [homeLoading, setHomeLoading] = useState(true);
 
-  // Full Grid / Search / Filter state
+  // Full Grid / Search / Advanced Filters state
   const [movies, setMovies] = useState([]);
   const [meta, setMeta] = useState({ page: 1, limit: 48, total: 0, total_pages: 0 });
   const [genres, setGenres] = useState([]);
@@ -54,6 +69,7 @@ export function CatalogPreviewPage() {
   const [searchInput, setSearchInput] = useState('');
   const [q, setQ] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('');
+  const [extraFilter, setExtraFilter] = useState(null); // { label, params }
   const [sort, setSort] = useState('rating');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(48);
@@ -65,8 +81,10 @@ export function CatalogPreviewPage() {
   const [reviewsError, setReviewsError] = useState('');
   const [myRating, setMyRating] = useState(5);
   const [myComment, setMyComment] = useState('');
+  const [myIsSpoiler, setMyIsSpoiler] = useState(false);
   const [myExistingReviewId, setMyExistingReviewId] = useState(null);
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [insightsTick, setInsightsTick] = useState(0);
   const [likedIds, setLikedIds] = useState({});
 
   const [trailerMovie, setTrailerMovie] = useState(null);
@@ -78,17 +96,42 @@ export function CatalogPreviewPage() {
   const [profileGenres, setProfileGenres] = useState([]);
   const [savingProfile, setSavingProfile] = useState(false);
 
+  // Liquid Glass scroll effect
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Global Command Palette shortcut (Ctrl+K / Cmd+K / `/`)
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setCmdOpen((v) => !v);
+        return;
+      }
+      if (e.key === '/' && !cmdOpen && !activeMovie && !trailerMovie && !rouletteOpen && !profileOpen) {
+        const tag = e.target?.tagName?.toLowerCase();
+        if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') {
+          e.preventDefault();
+          setCmdOpen(true);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [cmdOpen, activeMovie, trailerMovie, rouletteOpen, profileOpen]);
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const trimmed = searchInput.trim();
       setQ(trimmed);
       setPage(1);
-      if (trimmed && view === 'home') {
-        setView('browse');
-      }
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [searchInput, view]);
+  }, [searchInput]);
 
   useEffect(() => {
     api.getGenres().then(setGenres).catch(() => {});
@@ -105,7 +148,6 @@ export function CatalogPreviewPage() {
       .then(([topViewsRes, ...genreResults]) => {
         if (cancelled) return;
         const topItems = topViewsRes.items || [];
-        // Prefer iconic HD movies with crisp 1080p maxresdefault trailers for Billboard
         const heroPool = topItems.slice(1, 7).length >= 5 ? topItems.slice(1, 7) : topItems.slice(0, 6);
         setBillboardMovies(heroPool);
         setTop10Movies(topItems.slice(0, 10));
@@ -130,7 +172,7 @@ export function CatalogPreviewPage() {
     };
   }, [pushToast]);
 
-  // Load Watchlist whenever user is logged in (for Home row + Watchlist tab)
+  // Load Watchlist whenever user is logged in
   const loadWatchlist = useCallback(async () => {
     if (!user) {
       setWatchlistMovies([]);
@@ -156,13 +198,15 @@ export function CatalogPreviewPage() {
     if (view !== 'browse' && view !== 'popular') return;
     setGridLoading(true);
     try {
-      const res = await api.listMovies({
+      const mergedParams = {
+        ...(view === 'browse' && extraFilter?.params ? extraFilter.params : {}),
         q: q || undefined,
         genre: selectedGenre || undefined,
         sort: view === 'popular' ? 'newest' : sort,
         page,
         limit: pageSize,
-      });
+      };
+      const res = await api.listMovies(mergedParams);
       setMovies(res.items);
       setMeta(res.meta);
     } catch (err) {
@@ -170,7 +214,7 @@ export function CatalogPreviewPage() {
     } finally {
       setGridLoading(false);
     }
-  }, [view, q, selectedGenre, sort, page, pageSize, pushToast]);
+  }, [view, q, selectedGenre, extraFilter, sort, page, pageSize, pushToast]);
 
   useEffect(() => {
     loadGridMovies();
@@ -182,6 +226,7 @@ export function CatalogPreviewPage() {
     setLoadingMore(true);
     try {
       const res = await api.listMovies({
+        ...(view === 'browse' && extraFilter?.params ? extraFilter.params : {}),
         q: q || undefined,
         genre: selectedGenre || undefined,
         sort: view === 'popular' ? 'newest' : sort,
@@ -208,40 +253,45 @@ export function CatalogPreviewPage() {
     }
   };
 
-  const openFilmDetail = async (movie) => {
-    setActiveMovie(movie);
-    setMyRating(5);
-    setMyComment('');
-    setMyExistingReviewId(null);
-    setReviewsError('');
-    setReviewsLoading(true);
-    try {
-      const [freshResult, revResult] = await Promise.allSettled([
-        api.getMovie(movie.id, true),
-        api.listMovieReviews(movie.id, { limit: 30 }),
-      ]);
-      if (freshResult.status === 'fulfilled') {
-        setActiveMovie(freshResult.value);
-      }
-      if (revResult.status === 'fulfilled') {
-        const list = revResult.value.items || [];
-        setMovieReviews(list);
-        if (user) {
-          const mine = list.find((r) => r.user_id === user.id);
-          if (mine) {
-            setMyExistingReviewId(mine.id);
-            setMyRating(mine.rating);
-            setMyComment(mine.comment || '');
-          }
+  const openFilmDetail = useCallback(
+    async (movie) => {
+      setActiveMovie(movie);
+      setMyRating(5);
+      setMyComment('');
+      setMyIsSpoiler(false);
+      setMyExistingReviewId(null);
+      setReviewsError('');
+      setReviewsLoading(true);
+      try {
+        const [freshResult, revResult] = await Promise.allSettled([
+          api.getMovie(movie.id, true),
+          api.listMovieReviews(movie.id, { limit: 30 }),
+        ]);
+        if (freshResult.status === 'fulfilled') {
+          setActiveMovie(freshResult.value);
         }
-      } else {
-        setMovieReviews([]);
-        setReviewsError('Không thể tải bình luận từ máy chủ.');
+        if (revResult.status === 'fulfilled') {
+          const list = revResult.value.items || [];
+          setMovieReviews(list);
+          if (user) {
+            const mine = list.find((r) => r.user_id === user.id);
+            if (mine) {
+              setMyExistingReviewId(mine.id);
+              setMyRating(mine.rating);
+              setMyComment(mine.comment || '');
+              setMyIsSpoiler(Boolean(mine.is_spoiler));
+            }
+          }
+        } else {
+          setMovieReviews([]);
+          setReviewsError('Không thể tải bình luận từ máy chủ.');
+        }
+      } finally {
+        setReviewsLoading(false);
       }
-    } finally {
-      setReviewsLoading(false);
-    }
-  };
+    },
+    [user]
+  );
 
   const inWatchlist = (movieId) => Boolean(user?.watchlist?.includes(movieId));
 
@@ -288,6 +338,7 @@ export function CatalogPreviewPage() {
       const saved = await api.upsertReview(activeMovie.id, {
         rating: Number(myRating),
         comment: myComment.trim(),
+        is_spoiler: Boolean(myIsSpoiler),
       });
       setMyExistingReviewId(saved.id);
       pushToast({
@@ -301,6 +352,7 @@ export function CatalogPreviewPage() {
       ]);
       setActiveMovie(fresh);
       setMovieReviews(revRes.items || []);
+      setInsightsTick((n) => n + 1);
       if (view === 'browse' || view === 'popular') loadGridMovies();
     } catch (err) {
       pushToast({ title: 'Không thể gửi đánh giá', description: err.message, variant: 'danger' });
@@ -317,6 +369,7 @@ export function CatalogPreviewPage() {
       setMyExistingReviewId(null);
       setMyRating(5);
       setMyComment('');
+      setMyIsSpoiler(false);
       pushToast({ title: t('deleteMyReview'), variant: 'info' });
       const [fresh, revRes] = await Promise.all([
         api.getMovie(activeMovie.id, false),
@@ -324,6 +377,7 @@ export function CatalogPreviewPage() {
       ]);
       setActiveMovie(fresh);
       setMovieReviews(revRes.items || []);
+      setInsightsTick((n) => n + 1);
       if (view === 'browse' || view === 'popular') loadGridMovies();
     } catch (err) {
       pushToast({ title: 'Không thể xóa đánh giá', description: err.message, variant: 'danger' });
@@ -367,6 +421,7 @@ export function CatalogPreviewPage() {
 
   const openGenreInGrid = (genreName) => {
     setSelectedGenre(genreName);
+    setExtraFilter(null);
     setQ('');
     setSearchInput('');
     setPage(1);
@@ -374,20 +429,85 @@ export function CatalogPreviewPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const openMoodInGrid = (preset) => {
+    const cleanParams = { ...preset.params };
+    delete cleanParams.limit;
+    setSelectedGenre('');
+    setExtraFilter({ label: t(preset.labelKey), params: cleanParams });
+    setQ('');
+    setSearchInput('');
+    setPage(1);
+    setView('browse');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const openDecadeInGrid = (decade, label) => {
+    setSelectedGenre('');
+    setExtraFilter({ label: `Thập niên ${label}`, params: { decade } });
+    setQ('');
+    setSearchInput('');
+    setPage(1);
+    setView('browse');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleOpenRoulette = (presetMood = 'any') => {
+    setRouletteMood(presetMood);
+    setRouletteOpen(true);
+  };
+
+  const handleOpenPerson = (name, role = 'director') => {
+    if (!name) return;
+    setSpotlightPerson({ name, role });
+  };
+
+  const handleJumpTimeline = () => {
+    setView('home');
+    window.setTimeout(() => {
+      document.getElementById('cinema-timeline')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+  };
+
+  const navTabs = [
+    { key: 'home', label: t('homeNav') },
+    { key: 'reels', label: t('reelsNav'), isLive: true },
+    { key: 'browse', label: `${t('catalogNav')} (${meta.total || 1055})` },
+    { key: 'popular', label: t('popularNav') },
+    ...(user ? [{ key: 'watchlist', label: `${t('watchlistNav')} (${user.watchlist?.length || 0})` }] : []),
+  ];
+
   const gridItems = view === 'watchlist' ? watchlistMovies : movies;
+  const modalBlockingBackground =
+    Boolean(activeMovie) || Boolean(trailerMovie) || rouletteOpen || cmdOpen || Boolean(spotlightPerson);
 
   return (
     <div className="min-h-dvh bg-[#0B0B0D] text-[#F3EFE6]">
-      {/* Netflix-style Top Navigation Bar (z-40 cleanly above all content) */}
-      <header className="sticky top-0 z-40 border-b border-white/8 bg-[#0B0B0D]/90 backdrop-blur-lg">
-        <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-4 py-3.5 sm:px-8">
-          {/* Left: Red Brand + Pill Nav Items */}
-          <div className="flex items-center gap-6">
+      {/* Apple TV+ Liquid Glass Sticky Top Navigation */}
+      <header
+        className={`sticky top-0 z-40 border-b transition-all duration-500 ${
+          scrolled || view === 'reels'
+            ? 'border-white/12 bg-[#0B0B0D]/75 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.45)]'
+            : 'border-white/6 bg-[#0B0B0D]/88 backdrop-blur-lg'
+        }`}
+        style={
+          view === 'home'
+            ? {
+                boxShadow: scrolled
+                  ? `0 8px 36px rgba(${ambientRgb.r}, ${ambientRgb.g}, ${ambientRgb.b}, 0.14)`
+                  : undefined,
+              }
+            : undefined
+        }
+      >
+        <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-4 py-3 sm:px-8">
+          {/* Left: Brand + Pill Nav Items */}
+          <div className="flex items-center gap-5">
             <button
               type="button"
               onClick={() => {
                 setView('home');
                 setSelectedGenre('');
+                setExtraFilter(null);
                 setSearchInput('');
                 setQ('');
               }}
@@ -398,13 +518,8 @@ export function CatalogPreviewPage() {
               </span>
             </button>
 
-            <nav className="hidden items-center gap-1 md:flex" aria-label="Điều hướng chính">
-              {[
-                { key: 'home', label: t('homeNav') },
-                { key: 'browse', label: `${t('catalogNav')} (${meta.total || 1055})` },
-                { key: 'popular', label: t('popularNav') },
-                ...(user ? [{ key: 'watchlist', label: `${t('watchlistNav')} (${user.watchlist?.length || 0})` }] : []),
-              ].map((item) => {
+            <nav className="hidden items-center gap-1 lg:flex" aria-label="Điều hướng chính">
+              {navTabs.map((item) => {
                 const active = view === item.key;
                 return (
                   <button
@@ -414,56 +529,62 @@ export function CatalogPreviewPage() {
                       setView(item.key);
                       if (item.key !== 'browse') {
                         setSelectedGenre('');
+                        setExtraFilter(null);
                       }
                       setPage(1);
                     }}
-                    className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
                       active
                         ? 'bg-white/15 text-white'
                         : 'text-[#A59F95] hover:bg-white/8 hover:text-white'
                     }`}
                   >
-                    {item.label}
+                    {item.isLive && (
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          active ? 'animate-pulse bg-[#E50914]' : 'bg-[#E50914]/80'
+                        }`}
+                      />
+                    )}
+                    <span>{item.label}</span>
                   </button>
                 );
               })}
             </nav>
           </div>
 
-          {/* Right: Inline Expandable Search + Language Switcher + Admin + User */}
-          <div className="flex items-center gap-2.5">
-            {searchOpen ? (
-              <div className="relative flex items-center">
-                <Search className="pointer-events-none absolute left-3 h-3.5 w-3.5 text-[#A59F95]" aria-hidden="true" />
-                <input
-                  type="search"
-                  autoFocus
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  onBlur={() => {
-                    if (!searchInput.trim()) setSearchOpen(false);
-                  }}
-                  placeholder={t('searchPlaceholder')}
-                  className="w-44 rounded-full border border-white/25 bg-black/70 py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-[#746F67] focus:w-64 focus:border-white focus:outline-none sm:w-56"
-                />
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setSearchOpen(true)}
-                aria-label={t('searchPlaceholder')}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-[#D8D3C8] transition-colors hover:bg-white/10 hover:text-white"
-              >
-                <Search className="h-4 w-4" aria-hidden="true" />
-              </button>
-            )}
+          {/* Right: Ctrl+K Spotlight + Tito Roulette + Language + Admin + User */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCmdOpen(true)}
+              aria-label={t('cmdPlaceholder')}
+              className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/[0.04] px-3 py-1.5 text-xs text-[#C9C3B8] transition-colors hover:border-white/35 hover:bg-white/10 hover:text-white"
+            >
+              <Search className="h-3.5 w-3.5 text-[#E50914]" aria-hidden="true" />
+              <span className="hidden xl:inline">{t('searchPlaceholder').slice(0, 18)}...</span>
+              <kbd className="hidden rounded border border-white/15 bg-black/50 px-1.5 py-0.5 font-mono-ledger text-[10px] text-[#8C877E] sm:inline">
+                Ctrl K
+              </kbd>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleOpenRoulette('any')}
+              aria-label={t('rouletteTitle')}
+              title={t('rouletteCta')}
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#E50914]/45 bg-[#E50914]/15 px-3 text-xs font-medium text-white transition-colors hover:bg-[#E50914]"
+            >
+              <Dice5 className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden md:inline">Roulette</span>
+            </button>
 
             <LanguageSwitcher compact />
 
             {user?.role === 'admin' && (
               <Link
                 to="/admin"
-                className="inline-flex items-center gap-1.5 rounded-full border border-[#E50914]/60 bg-[#E50914]/15 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#E50914]"
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/18 bg-white/8 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:border-[#E50914] hover:bg-[#E50914]"
               >
                 <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
                 <span className="hidden sm:inline">{t('adminPanel')}</span>
@@ -471,14 +592,14 @@ export function CatalogPreviewPage() {
             )}
 
             {user ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={handleOpenProfile}
                   className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/8 px-3 py-1.5 text-xs text-white transition-colors hover:border-white/40"
                 >
                   <User className="h-3.5 w-3.5 text-[#E0A43B]" aria-hidden="true" />
-                  <span className="hidden max-w-[120px] truncate lg:inline">{user.full_name}</span>
+                  <span className="hidden max-w-[110px] truncate xl:inline">{user.full_name}</span>
                 </button>
                 <button
                   type="button"
@@ -500,17 +621,12 @@ export function CatalogPreviewPage() {
           </div>
         </div>
 
-        {/* Mobile Pill Navigation */}
+        {/* Tablet/Mobile Pill Navigation */}
         <nav
-          className="flex items-center gap-1.5 overflow-x-auto border-t border-white/6 px-4 py-2 md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex items-center gap-1.5 overflow-x-auto border-t border-white/6 px-4 py-2 lg:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           aria-label="Điều hướng di động"
         >
-          {[
-            { key: 'home', label: t('homeNav') },
-            { key: 'browse', label: `${t('catalogNav')} (${meta.total || 1055})` },
-            { key: 'popular', label: t('popularNav') },
-            ...(user ? [{ key: 'watchlist', label: `${t('watchlistNav')} (${user.watchlist?.length || 0})` }] : []),
-          ].map((item) => {
+          {navTabs.map((item) => {
             const active = view === item.key;
             return (
               <button
@@ -518,26 +634,49 @@ export function CatalogPreviewPage() {
                 type="button"
                 onClick={() => {
                   setView(item.key);
-                  if (item.key !== 'browse') setSelectedGenre('');
+                  if (item.key !== 'browse') {
+                    setSelectedGenre('');
+                    setExtraFilter(null);
+                  }
                   setPage(1);
                 }}
-                className={`shrink-0 rounded-full px-3.5 py-1 text-xs font-medium transition-colors ${
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-medium transition-colors ${
                   active ? 'bg-white/15 text-white' : 'text-[#A59F95] hover:bg-white/8 hover:text-white'
                 }`}
               >
-                {item.label}
+                {item.isLive && <span className="h-1.5 w-1.5 rounded-full bg-[#E50914]" />}
+                <span>{item.label}</span>
               </button>
             );
           })}
         </nav>
       </header>
 
-      {/* === MODE 1: NETFLIX HOME VIEW (16:9 HD Billboard + Top 10 + Genre Rows) === */}
+      {/* === MODE 0: TITOFILM REELS (FULLSCREEN VERTICAL HD TRAILER STREAM) === */}
+      {view === 'reels' && (
+        <ReelsView
+          initialMovies={[...billboardMovies, ...top10Movies].filter(
+            (m, i, arr) => arr.findIndex((x) => x.id === m.id) === i
+          )}
+          user={user}
+          pausedExternal={modalBlockingBackground}
+          inWatchlist={inWatchlist}
+          likedIds={likedIds}
+          onPlayFullTrailer={openTrailer}
+          onOpenDetail={openFilmDetail}
+          onToggleWatchlist={toggleWatchlist}
+          onLikeMovie={handleLikeMovie}
+          onOpenPerson={handleOpenPerson}
+        />
+      )}
+
+      {/* === MODE 1: CINEMA HOME VIEW (Ambient Billboard + Mood Tuner + Top 10 + Timeline + Rows) === */}
       {view === 'home' && (
         <div className="pb-16">
           {homeLoading ? (
             <div className="mx-auto max-w-[1440px] space-y-8 px-4 pt-6 sm:px-8">
               <div className="h-[56vh] animate-pulse rounded-2xl bg-[#16161C]" />
+              <div className="h-28 animate-pulse rounded-2xl bg-[#141418]" />
               <div className="h-56 animate-pulse rounded-xl bg-[#141418]" />
             </div>
           ) : (
@@ -546,14 +685,25 @@ export function CatalogPreviewPage() {
                 movies={billboardMovies}
                 activeIndex={billboardIdx}
                 onSelectIndex={setBillboardIdx}
-                pausedExternal={Boolean(activeMovie) || Boolean(trailerMovie)}
+                onAmbientColorChange={setAmbientRgb}
+                pausedExternal={modalBlockingBackground}
                 inWatchlist={inWatchlist}
                 onPlayTrailer={openTrailer}
                 onOpenDetail={openFilmDetail}
                 onToggleWatchlist={toggleWatchlist}
               />
 
-              <main className="mx-auto mt-10 max-w-[1440px] space-y-10 px-4 sm:px-8">
+              <main className="mx-auto mt-8 max-w-[1440px] space-y-11 px-4 sm:px-8">
+                {/* Mood Tuner & Tito Roulette Bar */}
+                <MoodTunerBar
+                  onOpenRoulette={handleOpenRoulette}
+                  onExploreMoodInGrid={openMoodInGrid}
+                  inWatchlist={inWatchlist}
+                  onPlayTrailer={openTrailer}
+                  onOpenDetail={openFilmDetail}
+                  onToggleWatchlist={toggleWatchlist}
+                />
+
                 {/* Ranked Top 10 Row */}
                 <MovieRow
                   title={t('top10Today')}
@@ -566,7 +716,7 @@ export function CatalogPreviewPage() {
                   onToggleWatchlist={toggleWatchlist}
                 />
 
-                {/* Personal Watchlist Row (when signed in and non-empty) */}
+                {/* Personal Watchlist Row */}
                 {user && watchlistMovies.length > 0 && (
                   <MovieRow
                     title={t('watchlistTitle')}
@@ -579,7 +729,15 @@ export function CatalogPreviewPage() {
                   />
                 )}
 
-                {/* Genre Swimlanes (Plug-in ready: TV2 Neo4j & TV3 Redis rows drop right here) */}
+                {/* 100 Years of Cinema Interactive Filmstrip (1920s -> 2020s) */}
+                <CinemaTimeline
+                  onOpenDetail={openFilmDetail}
+                  onPlayTrailer={openTrailer}
+                  onOpenPerson={handleOpenPerson}
+                  onExploreDecade={openDecadeInGrid}
+                />
+
+                {/* Genre Swimlanes (Plug-in ready for TV2 Neo4j & TV3 Redis rows) */}
                 {HOME_GENRE_ROWS.map((gName) => (
                   <MovieRow
                     key={gName}
@@ -616,7 +774,7 @@ export function CatalogPreviewPage() {
       )}
 
       {/* === MODE 2: FULL CATALOG / POPULAR / WATCHLIST GRID === */}
-      {view !== 'home' && (
+      {view !== 'home' && view !== 'reels' && (
         <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-8">
           {view === 'watchlist' ? (
             <div className="mb-6 flex items-end justify-between border-b border-white/10 pb-5">
@@ -686,6 +844,26 @@ export function CatalogPreviewPage() {
                 </div>
               </div>
 
+              {/* Active Advanced Filter Chip (Mood / Decade) */}
+              {extraFilter && view === 'browse' && (
+                <div className="mt-4 flex items-center gap-2">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-[#E0A43B]/45 bg-[#E0A43B]/15 px-3.5 py-1 text-xs font-medium text-[#E0A43B]">
+                    <span>{extraFilter.label}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExtraFilter(null);
+                        setPage(1);
+                      }}
+                      aria-label={t('clearFilter')}
+                      className="hover:text-white"
+                    >
+                      <X className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </span>
+                </div>
+              )}
+
               {/* Genre Chips */}
               <div className="mt-4 flex flex-wrap gap-1.5">
                 <button
@@ -708,6 +886,7 @@ export function CatalogPreviewPage() {
                     type="button"
                     onClick={() => {
                       setSelectedGenre(g.name);
+                      setExtraFilter(null);
                       setPage(1);
                     }}
                     className={`rounded-full border px-3.5 py-1 text-xs transition-colors ${
@@ -877,7 +1056,7 @@ export function CatalogPreviewPage() {
         </main>
       )}
 
-      {/* Netflix-style Center Movie Detail Modal */}
+      {/* Netflix × Letterboxd Movie Detail Modal */}
       <MovieDetailModal
         movie={activeMovie}
         user={user}
@@ -890,6 +1069,8 @@ export function CatalogPreviewPage() {
         onChangeRating={setMyRating}
         myComment={myComment}
         onChangeComment={setMyComment}
+        myIsSpoiler={myIsSpoiler}
+        onChangeIsSpoiler={setMyIsSpoiler}
         myExistingReviewId={myExistingReviewId}
         submittingReview={submittingReview}
         onSubmitReview={handleSubmitReview}
@@ -897,8 +1078,46 @@ export function CatalogPreviewPage() {
         onPlayFullTrailer={(m) => openTrailer(m)}
         onToggleWatchlist={toggleWatchlist}
         onLikeMovie={handleLikeMovie}
+        onOpenPerson={handleOpenPerson}
+        onSelectMovie={openFilmDetail}
         onClose={() => setActiveMovie(null)}
         pausedExternal={Boolean(trailerMovie)}
+        insightsRefreshTick={insightsTick}
+      />
+
+      {/* Director & Actor Spotlight Slide-Over Drawer */}
+      <PersonSpotlightDrawer
+        person={spotlightPerson}
+        onClose={() => setSpotlightPerson(null)}
+        onSelectMovie={openFilmDetail}
+        onPlayTrailer={openTrailer}
+      />
+
+      {/* Tito Roulette Interactive Picker Modal */}
+      <TitoRouletteModal
+        open={rouletteOpen}
+        initialMood={rouletteMood}
+        inWatchlist={inWatchlist}
+        onPlayTrailer={openTrailer}
+        onOpenDetail={openFilmDetail}
+        onToggleWatchlist={toggleWatchlist}
+        onClose={() => setRouletteOpen(false)}
+      />
+
+      {/* Global Cinema Command Palette (Ctrl + K) */}
+      <CommandPalette
+        open={cmdOpen}
+        onClose={() => setCmdOpen(false)}
+        isAdmin={user?.role === 'admin'}
+        onSelectMovie={openFilmDetail}
+        onPlayTrailer={openTrailer}
+        onNavigateView={(nextView) => {
+          setView(nextView);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenRoulette={handleOpenRoulette}
+        onJumpTimeline={handleJumpTimeline}
+        onOpenAdmin={() => navigate('/admin')}
       />
 
       {/* User Profile Modal */}
@@ -953,7 +1172,7 @@ export function CatalogPreviewPage() {
                   rows={2}
                   value={profileBio}
                   onChange={(e) => setProfileBio(e.target.value)}
-                  className="mt-1.5 w-full rounded-lg border border-white/14 bg-[#0D0D10] px-3.5 py-2 text-sm text-white focus:border-white/50 focus:outline-none"
+                  className="mt-1.5 w-full rounded-lg border border-white/14 bg-[#0D0D10] px-3.5 py-2.5 text-sm text-white focus:border-white/50 focus:outline-none"
                 />
               </div>
 

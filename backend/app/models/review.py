@@ -12,6 +12,7 @@ class ReviewUpsertRequest(BaseModel):
 
     rating: StrictInt = Field(ge=1, le=5, description="Strict integer rating between 1 and 5.")
     comment: StrictStr = Field(default="", max_length=2000)
+    is_spoiler: StrictBool = False
 
     @field_validator("comment")
     @classmethod
@@ -37,6 +38,7 @@ class ReviewOut(BaseModel):
     movie_poster_url: str | None = None
     rating: int
     comment: str
+    is_spoiler: bool = False
     is_hidden: bool
     created_at: datetime
     updated_at: datetime
