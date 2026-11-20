@@ -51,7 +51,7 @@ export function AdminLayout() {
             </div>
           </div>
           <div className="mt-4">
-            <LanguageSwitcher />
+            <LanguageSwitcher align="left" />
           </div>
         </div>
 
@@ -117,7 +117,7 @@ export function AdminLayout() {
         Skip to content
       </a>
 
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 border-r border-[#F3EFE6]/10 bg-[#101014] lg:block">
+      <aside className="sticky top-0 z-30 hidden h-dvh w-60 shrink-0 border-r border-[#F3EFE6]/10 bg-[#101014] lg:block">
         {renderNavContent()}
       </aside>
 

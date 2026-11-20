@@ -106,8 +106,8 @@ export function LoginPage() {
           }}
         />
 
-        {/* Top Bar */}
-        <div className="relative z-10 flex items-center justify-between gap-3">
+        {/* Top Bar (z-30 above center film stage z-10 so dropdown never gets overlapped) */}
+        <div className="relative z-30 flex items-center justify-between gap-3">
           <Link to="/catalog" className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center bg-[#D63628] text-[#F3EFE6]">
               <Clapperboard className="h-4 w-4" aria-hidden="true" />

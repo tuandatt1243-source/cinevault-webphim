@@ -16,7 +16,7 @@ from app.services.translate_service import translate_text_free
 OVERVIEW_VI_PATH = BACKEND_DIR / "data" / "overview_vi.json"
 
 
-async def pretranslate_top_movies(limit: int = 80, concurrency: int = 8) -> None:
+async def pretranslate_top_movies(limit: int = 80, views_limit: int = 30, concurrency: int = 8) -> None:
     saved: dict[str, str] = {}
     if OVERVIEW_VI_PATH.exists():
         try:
@@ -27,15 +27,25 @@ async def pretranslate_top_movies(limit: int = 80, concurrency: int = 8) -> None
     db = await mongo_manager.connect()
     try:
         await ensure_collections_and_indexes(db)
-        cursor = (
-            db.movies.find(
-                {"is_deleted": False},
-                {"_id": 1, "slug": 1, "overview": 1, "overview_i18n": 1},
-            )
+        projection = {"_id": 1, "slug": 1, "overview": 1, "overview_i18n": 1}
+        top_rated = (
+            await db.movies.find({"is_deleted": False}, projection)
             .sort([("avg_rating", -1), ("rating_count", -1)])
             .limit(limit)
+            .to_list(length=limit)
         )
-        movies = await cursor.to_list(length=limit)
+        top_viewed = (
+            await db.movies.find({"is_deleted": False}, projection)
+            .sort([("views_count", -1), ("avg_rating", -1)])
+            .limit(views_limit)
+            .to_list(length=views_limit)
+        )
+        seen_ids = set()
+        movies = []
+        for doc in [*top_viewed, *top_rated]:
+            if doc["_id"] not in seen_ids:
+                seen_ids.add(doc["_id"])
+                movies.append(doc)
         sem = asyncio.Semaphore(concurrency)
         stats = {"already": 0, "translated": 0, "failed": 0}
 

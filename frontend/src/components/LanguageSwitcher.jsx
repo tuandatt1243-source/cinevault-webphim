@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, Globe } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
-export function LanguageSwitcher({ compact = false }) {
+export function LanguageSwitcher({ compact = false, align = 'right' }) {
   const { lang, setLang, languages } = useLanguage();
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
@@ -46,7 +46,7 @@ export function LanguageSwitcher({ compact = false }) {
         <ul
           role="listbox"
           aria-label="Danh sách ngôn ngữ"
-          className="absolute right-0 z-50 mt-1.5 w-40 border border-[#F3EFE6]/16 bg-[#131317] py-1 shadow-2xl"
+          className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} z-[80] mt-1.5 w-40 rounded-lg border border-[#F3EFE6]/18 bg-[#141418] py-1 shadow-[0_20px_50px_rgba(0,0,0,0.85)]`}
         >
           {languages.map((item) => {
             const active = item.code === lang;

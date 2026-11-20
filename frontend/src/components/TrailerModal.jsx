@@ -83,7 +83,7 @@ export function TrailerModal({ open, movie, onClose }) {
         <div className="relative aspect-video w-full bg-black">
           {videoId ? (
             <iframe
-              src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`}
+              src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1&vq=hd1080&hd=1&playsinline=1`}
               title={`Trailer ${movie.title}`}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
