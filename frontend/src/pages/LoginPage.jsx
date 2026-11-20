@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Clapperboard, Eye, EyeOff, ArrowRight, Play, Star } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Play, Star } from 'lucide-react';
 import { api } from '../api/client';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { PosterImage } from '../components/PosterImage';
@@ -34,7 +34,7 @@ export function LoginPage() {
 
   useEffect(() => {
     api
-      .listMovies({ limit: 6, sort: 'rating' })
+      .listMovies({ limit: 6, sort: 'views' })
       .then((res) => setShowcaseMovies(res.items || []))
       .catch(() => {});
   }, []);
@@ -85,13 +85,13 @@ export function LoginPage() {
 
   return (
     <div className="cinema-grain flex min-h-dvh w-full overflow-x-hidden bg-[#0B0B0D] text-[#F3EFE6]">
-      {/* Left 52-55%: Interactive Film Spotlight with Featured Poster above */}
-      <section className="relative hidden shrink-0 flex-col justify-between overflow-hidden border-r border-[#F3EFE6]/10 bg-[#0E0E11] px-8 py-8 lg:flex lg:w-[52%] xl:w-[55%] xl:px-12 xl:py-10">
-        <div className="pointer-events-none absolute inset-0 grid grid-cols-3 gap-3 p-6 opacity-18">
+      {/* Left 52-55%: Interactive Cinema Film Spotlight */}
+      <section className="relative hidden shrink-0 flex-col justify-between overflow-hidden border-r border-white/10 bg-[#0E0E12] px-8 py-8 lg:flex lg:w-[52%] xl:w-[55%] xl:px-12 xl:py-10">
+        <div className="pointer-events-none absolute inset-0 grid grid-cols-3 gap-3 p-6 opacity-16">
           {(showcaseMovies.length > 0 ? showcaseMovies : Array.from({ length: 6 })).map((m, idx) => (
-            <div key={m?.id || idx} className="overflow-hidden">
+            <div key={m?.id || idx} className="overflow-hidden rounded-lg">
               {m ? (
-                <PosterImage movieId={m.id} src={m.poster_url} title={m.title} year={m.release_year} />
+                <PosterImage movieId={m.id} src={m.poster_url} title={m.title} year={m.release_year} className="border-0" />
               ) : (
                 <div className="aspect-[2/3] w-full bg-[#17171D]" />
               )}
@@ -102,23 +102,25 @@ export function LoginPage() {
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              'radial-gradient(circle at 30% 45%, rgba(14,14,17,0.72) 0%, rgba(11,11,13,0.94) 75%)',
+              'radial-gradient(circle at 30% 45%, rgba(14,14,18,0.72) 0%, rgba(11,11,13,0.95) 76%)',
           }}
         />
 
-        {/* Top Bar (z-30 above center film stage z-10 so dropdown never gets overlapped) */}
+        {/* Top Bar (z-30 cleanly above center film stage so language dropdown never overlaps) */}
         <div className="relative z-30 flex items-center justify-between gap-3">
           <Link to="/catalog" className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center bg-[#D63628] text-[#F3EFE6]">
-              <Clapperboard className="h-4 w-4" aria-hidden="true" />
+            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#E50914] font-editorial text-lg font-bold text-white shadow-md">
+              T
             </span>
-            <span className="font-editorial text-2xl font-bold tracking-tight">Titofilm</span>
+            <span className="font-editorial text-2xl font-bold tracking-tight text-[#E50914]">
+              TITOFILM
+            </span>
           </Link>
           <div className="flex items-center gap-2.5">
             <LanguageSwitcher compact />
             <Link
               to="/catalog"
-              className="inline-flex items-center gap-1.5 border border-[#F3EFE6]/20 px-3 py-1.5 text-xs text-[#F3EFE6] transition-colors hover:border-[#F3EFE6] hover:bg-[#F3EFE6]/10"
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.04] px-3.5 py-1.5 text-xs text-[#F3EFE6] backdrop-blur-sm transition-colors hover:border-white hover:bg-white/12"
             >
               <span>{t('browseCatalog')}</span>
               <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -130,17 +132,18 @@ export function LoginPage() {
         {featuredMovie ? (
           <div className="relative z-10 my-auto py-6">
             <div className="flex flex-col items-start gap-7 xl:flex-row xl:items-center">
-              <div className="group relative w-44 shrink-0 shadow-[0_24px_48px_rgba(0,0,0,0.75)] ring-1 ring-[#F3EFE6]/20 xl:w-52">
+              <div className="group relative w-44 shrink-0 overflow-hidden rounded-xl shadow-[0_24px_54px_rgba(0,0,0,0.82)] ring-1 ring-white/18 xl:w-52">
                 <PosterImage
                   movieId={featuredMovie.id}
                   src={featuredMovie.poster_url}
                   title={featuredMovie.title}
                   year={featuredMovie.release_year}
+                  className="border-0"
                 />
                 <button
                   type="button"
                   onClick={() => setTrailerMovie(featuredMovie)}
-                  className="absolute inset-x-2.5 bottom-2.5 inline-flex items-center justify-center gap-1.5 bg-[#0B0B0D]/90 py-2 text-xs font-medium text-[#F3EFE6] ring-1 ring-[#F3EFE6]/25 backdrop-blur-sm transition-colors hover:bg-[#D63628] hover:ring-[#D63628]"
+                  className="absolute inset-x-3 bottom-3 inline-flex items-center justify-center gap-1.5 rounded-full bg-[#F3EFE6] py-2 text-xs font-semibold text-[#0B0B0D] shadow-lg transition-colors hover:bg-white"
                 >
                   <Play className="h-3 w-3 fill-current" aria-hidden="true" />
                   <span>{t('watchTrailer')}</span>
@@ -149,7 +152,7 @@ export function LoginPage() {
 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2 text-xs text-[#A59F95]">
-                  <span className="bg-[#D63628] px-2 py-0.5 text-[11px] font-medium text-[#F3EFE6]">
+                  <span className="rounded bg-[#E50914] px-2 py-0.5 text-[11px] font-semibold text-white">
                     {t('featuredShort')}
                   </span>
                   <span className="font-mono-ledger text-[#F3EFE6]">{featuredMovie.release_year}</span>
@@ -158,7 +161,7 @@ export function LoginPage() {
                   {featuredMovie.certificate && (
                     <>
                       <span>·</span>
-                      <span className="border border-[#F3EFE6]/20 px-1.5 py-0.5 font-mono-ledger text-[10px] text-[#F3EFE6]">
+                      <span className="rounded border border-white/20 px-1.5 py-0.5 font-mono-ledger text-[10px] text-[#F3EFE6]">
                         {featuredMovie.certificate}
                       </span>
                     </>
@@ -170,7 +173,7 @@ export function LoginPage() {
                   </span>
                 </div>
 
-                <h1 className="font-editorial mt-3 text-3xl font-semibold leading-[1.18] text-[#F3EFE6] xl:text-4xl">
+                <h1 className="font-editorial mt-3 text-3xl font-bold leading-[1.15] text-white xl:text-4xl">
                   {featuredMovie.title}
                 </h1>
 
@@ -179,7 +182,7 @@ export function LoginPage() {
                     {featuredMovie.genres.map((g) => (
                       <span
                         key={g}
-                        className="border border-[#F3EFE6]/14 bg-[#15151B]/90 px-2 py-0.5 text-[11px] text-[#C9C3B8]"
+                        className="rounded-full border border-white/14 bg-white/[0.05] px-2.5 py-0.5 text-[11px] text-[#C9C3B8]"
                       >
                         {tGenre(g)}
                       </span>
@@ -208,7 +211,7 @@ export function LoginPage() {
           </div>
         ) : (
           <div className="relative z-10 my-auto max-w-lg">
-            <h1 className="font-editorial text-4xl font-semibold leading-[1.2] text-[#F3EFE6]">
+            <h1 className="font-editorial text-4xl font-bold leading-[1.2] text-[#F3EFE6]">
               Titofilm
             </h1>
           </div>
@@ -216,7 +219,7 @@ export function LoginPage() {
 
         {/* Bottom Thumbnail Selector Rail */}
         {showcaseMovies.length > 1 && (
-          <div className="relative z-10 border-t border-[#F3EFE6]/12 pt-4">
+          <div className="relative z-10 border-t border-white/10 pt-4">
             <div className="mb-2.5 flex items-center justify-between text-xs text-[#746F67]">
               <span>{t('pickPosterHint')}</span>
               <span className="font-mono-ledger">
@@ -234,13 +237,13 @@ export function LoginPage() {
                     title={m.title}
                     aria-label={m.title}
                     aria-pressed={isSelected}
-                    className={`w-13 overflow-hidden border transition-all duration-200 ${
+                    className={`w-13 overflow-hidden rounded-md border transition-all duration-200 ${
                       isSelected
-                        ? '-translate-y-1 border-[#E0A43B] opacity-100 shadow-lg ring-1 ring-[#E0A43B]/50'
-                        : 'border-[#F3EFE6]/15 opacity-50 hover:-translate-y-0.5 hover:opacity-85'
+                        ? '-translate-y-1 border-[#F3EFE6] opacity-100 shadow-lg ring-1 ring-white/40'
+                        : 'border-white/14 opacity-50 hover:-translate-y-0.5 hover:opacity-85'
                     }`}
                   >
-                    <PosterImage movieId={m.id} src={m.poster_url} title={m.title} year={m.release_year} size="xs" />
+                    <PosterImage movieId={m.id} src={m.poster_url} title={m.title} year={m.release_year} size="xs" className="border-0" />
                   </button>
                 );
               })}
@@ -253,17 +256,17 @@ export function LoginPage() {
       <section className="flex min-w-0 flex-1 flex-col justify-center px-6 py-10 sm:px-8 lg:px-10">
         <div className="mx-auto w-full max-w-sm xl:max-w-md">
           <div className="mb-8 flex items-center justify-between lg:hidden">
-            <Link to="/catalog" className="flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center bg-[#D63628]">
-                <Clapperboard className="h-4 w-4" aria-hidden="true" />
+            <Link to="/catalog" className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded bg-[#E50914] font-editorial text-base font-bold text-white">
+                T
               </span>
-              <span className="font-editorial text-xl font-bold">Titofilm</span>
+              <span className="font-editorial text-xl font-bold text-[#E50914]">TITOFILM</span>
             </Link>
             <LanguageSwitcher compact />
           </div>
 
           {/* Mode Tabs */}
-          <div className="mb-7 flex border-b border-[#F3EFE6]/12">
+          <div className="mb-7 flex border-b border-white/12">
             <button
               type="button"
               onClick={() => {
@@ -272,7 +275,7 @@ export function LoginPage() {
               }}
               className={`flex-1 border-b-2 pb-3 text-sm font-medium transition-colors ${
                 mode === 'login'
-                  ? 'border-b-[#D63628] text-[#F3EFE6]'
+                  ? 'border-b-[#E50914] text-white'
                   : 'border-b-transparent text-[#746F67] hover:text-[#F3EFE6]'
               }`}
             >
@@ -286,7 +289,7 @@ export function LoginPage() {
               }}
               className={`flex-1 border-b-2 pb-3 text-sm font-medium transition-colors ${
                 mode === 'register'
-                  ? 'border-b-[#D63628] text-[#F3EFE6]'
+                  ? 'border-b-[#E50914] text-white'
                   : 'border-b-transparent text-[#746F67] hover:text-[#F3EFE6]'
               }`}
             >
@@ -294,7 +297,7 @@ export function LoginPage() {
             </button>
           </div>
 
-          <h2 className="font-editorial text-3xl font-semibold text-[#F3EFE6]">
+          <h2 className="font-editorial text-3xl font-semibold text-white">
             {mode === 'login' ? t('signIn') : t('createAccountTitle')}
           </h2>
           <p className="mt-1.5 text-sm text-[#A59F95]">
@@ -304,7 +307,7 @@ export function LoginPage() {
           {error && (
             <div
               role="alert"
-              className="mt-5 border border-[#E04848]/45 bg-[#E04848]/10 px-4 py-3 text-xs leading-relaxed text-[#F3EFE6]"
+              className="mt-5 rounded-xl border border-[#E04848]/45 bg-[#E04848]/10 px-4 py-3 text-xs leading-relaxed text-[#F3EFE6]"
             >
               {error}
             </div>
@@ -314,7 +317,7 @@ export function LoginPage() {
             {mode === 'register' && (
               <div>
                 <label htmlFor="auth-fullname" className="block text-xs font-medium text-[#A59F95]">
-                  {t('fullName')} <span className="text-[#D63628]">*</span>
+                  {t('fullName')} <span className="text-[#E50914]">*</span>
                 </label>
                 <input
                   id="auth-fullname"
@@ -325,14 +328,14 @@ export function LoginPage() {
                   onChange={(e) => setFullName(e.target.value)}
                   autoComplete="name"
                   placeholder="Nguyễn Văn A"
-                  className="mt-1.5 w-full border border-[#F3EFE6]/16 bg-[#131317] px-3.5 py-2.5 text-sm text-[#F3EFE6] placeholder:text-[#57534E] focus:border-[#F3EFE6]/55 focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-white/14 bg-[#141419] px-3.5 py-2.5 text-sm text-[#F3EFE6] placeholder:text-[#57534E] focus:border-white/50 focus:outline-none"
                 />
               </div>
             )}
 
             <div>
               <label htmlFor="auth-email" className="block text-xs font-medium text-[#A59F95]">
-                Email <span className="text-[#D63628]">*</span>
+                Email <span className="text-[#E50914]">*</span>
               </label>
               <input
                 id="auth-email"
@@ -341,14 +344,14 @@ export function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                placeholder="email@domain.com"
-                className="mt-1.5 w-full border border-[#F3EFE6]/16 bg-[#131317] px-3.5 py-2.5 text-sm text-[#F3EFE6] placeholder:text-[#57534E] focus:border-[#F3EFE6]/55 focus:outline-none"
+                placeholder="email@titofilm.local"
+                className="mt-1.5 w-full rounded-xl border border-white/14 bg-[#141419] px-3.5 py-2.5 text-sm text-[#F3EFE6] placeholder:text-[#57534E] focus:border-white/50 focus:outline-none"
               />
             </div>
 
             <div>
               <label htmlFor="auth-password" className="block text-xs font-medium text-[#A59F95]">
-                {t('password')} <span className="text-[#D63628]">*</span>
+                {t('password')} <span className="text-[#E50914]">*</span>
               </label>
               <div className="relative mt-1.5">
                 <input
@@ -360,7 +363,7 @@ export function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                   placeholder="••••••••"
-                  className="w-full border border-[#F3EFE6]/16 bg-[#131317] py-2.5 pl-3.5 pr-10 text-sm text-[#F3EFE6] placeholder:text-[#57534E] focus:border-[#F3EFE6]/55 focus:outline-none"
+                  className="w-full rounded-xl border border-white/14 bg-[#141419] py-2.5 pl-3.5 pr-10 text-sm text-[#F3EFE6] placeholder:text-[#57534E] focus:border-white/50 focus:outline-none"
                 />
                 <button
                   type="button"
@@ -376,27 +379,27 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="mt-2 w-full bg-[#D63628] py-3 text-sm font-medium text-[#F3EFE6] transition-colors hover:bg-[#E54739] disabled:opacity-50"
+              className="mt-2 w-full rounded-full bg-[#E50914] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#F40612] disabled:opacity-50"
             >
               {submitting ? '...' : mode === 'login' ? t('signIn') : t('signUp')}
             </button>
           </form>
 
           {/* Quick Demo Switcher */}
-          <div className="mt-8 border-t border-[#F3EFE6]/10 pt-5">
+          <div className="mt-8 border-t border-white/10 pt-5">
             <p className="text-xs text-[#746F67]">{t('demoQuickLabel')}</p>
             <div className="mt-2.5 grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => fillDemo('admin')}
-                className="border border-[#F3EFE6]/14 bg-[#131317] px-3 py-2 text-xs text-[#F3EFE6] transition-colors hover:border-[#D63628] hover:bg-[#1B1B21]"
+                className="rounded-xl border border-white/14 bg-[#141419] px-3 py-2.5 text-xs font-medium text-[#F3EFE6] transition-colors hover:border-white/40 hover:bg-[#1B1B22]"
               >
                 {t('demoAdmin')}
               </button>
               <button
                 type="button"
                 onClick={() => fillDemo('user')}
-                className="border border-[#F3EFE6]/14 bg-[#131317] px-3 py-2 text-xs text-[#A59F95] transition-colors hover:border-[#F3EFE6]/45 hover:text-[#F3EFE6]"
+                className="rounded-xl border border-white/14 bg-[#141419] px-3 py-2.5 text-xs text-[#A59F95] transition-colors hover:border-white/40 hover:text-white"
               >
                 {t('demoUser')}
               </button>

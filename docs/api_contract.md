@@ -52,12 +52,18 @@
 | `POST` | `/api/v1/users/me/watchlist/{movie_id}` | Bearer | `201` | Thêm phim vào watchlist + tạo interaction `WATCHLIST_ADD`. |
 | `DELETE` | `/api/v1/users/me/watchlist/{movie_id}` | Bearer | `200` | Gỡ phim khỏi watchlist. |
 
-### 2.4 Movies (`/api/v1/movies`) — Hỗ trợ Soft Delete
+### 2.4 Movies (`/api/v1/movies`) — Hỗ trợ Soft Delete & Khám Phá Điện Ảnh
 | Method | Endpoint | Auth | Status | Mô tả |
 |---|---|---|---|---|
 | `GET` | `/api/v1/movies/genres` | Public | `200` | Danh sách thể loại & số lượng phim active (Aggregation `$unwind + $group`). |
-| `GET` | `/api/v1/movies` | Public / Admin | `200` | Tìm kiếm (`q` dùng Text Index + safe regex fallback), lọc `genre`, `year`, `min_rating`, `sort` (`rating\|newest\|views\|created\|title\|year_asc`), `page`, `limit`. Admin hỗ trợ `status=active\|deleted\|all`. |
+| `GET` | `/api/v1/movies/decades` | Public | `200` | Tổng hợp phim theo 8 thập kỷ (`1920s–1950s` → `2020s`): số lượng, điểm TB, top đạo diễn và 10 phim tiêu biểu mỗi thời kỳ. |
+| `GET` | `/api/v1/movies/roulette` | Public | `200` | Lấy ngẫu nhiên danh sách phim khớp tâm trạng (`mood`: `mindbend\|emotional\|adrenaline\|quick\|classic\|dark\|animation\|any`) & `max_runtime` bằng MongoDB `$sample` (phục vụ Tito Roulette & Reels). |
+| `GET` | `/api/v1/movies/person` | Public | `200` / `400` | Hồ sơ sự nghiệp & gia tài phim của đạo diễn hoặc diễn viên (`name`, `role=director\|actor`). |
+| `GET` | `/api/v1/movies` | Public / Admin | `200` | Tìm kiếm (`q` dùng Text Index + safe regex fallback), lọc `genre`, `genres` (nhiều thể loại OR), `year`, `decade`, `year_from`, `year_to`, `max_runtime`, `min_rating`, `min_imdb`, `director`, `actor`, `has_trailer`, `sort` (`rating\|newest\|views\|created\|title\|year_asc`), `page`, `limit`. Admin hỗ trợ `status=active\|deleted\|all`. |
 | `GET` | `/api/v1/movies/{movie_id}` | Public / Admin | `200` / `404` | Chi tiết phim; tự động tăng `views_count`, ghi interaction `VIEW` (nếu đã đăng nhập), gọi `record_movie_view` cho Redis Trending/Recently Watched. |
+| `GET` | `/api/v1/movies/{movie_id}/insights` | Public | `200` / `404` | Aggregation phân bố đánh giá 5★→1★ (Rating Histogram), nhãn đồng thuận cộng đồng và tối đa 6 phim khác cùng đạo diễn. |
+| `GET` | `/api/v1/movies/{movie_id}/translate` | Public | `200` / `404` | Dịch & cache mô tả phim theo 6 ngôn ngữ (`lang=vi\|en\|ja\|ko\|fr\|zh`) trực tiếp vào `overview_i18n` trên MongoDB. |
+| `GET` | `/api/v1/movies/{movie_id}/poster` | Public | `200` / `404` | Proxy cache poster cục bộ tốc độ cao trên đĩa (`backend/data/posters/`) kèm cơ chế tự khôi phục link hỏng qua IMDb API. |
 | `POST` | `/api/v1/movies` | **Admin** | `201` / `409` | Thêm phim mới + ghi `sync_jobs (UPSERT)` + invalidate cache. |
 | `PUT` | `/api/v1/movies/{movie_id}` | **Admin** | `200` / `404` | Sửa phim + ghi `sync_jobs (UPSERT, replace_relations=true)` để TV2 xóa quan hệ cũ trên Neo4j + invalidate cache. |
 | `DELETE` | `/api/v1/movies/{movie_id}` | **Admin** | `200` / `404` | **Soft Delete** (`is_deleted=true, deleted_at=now`) + ghi `sync_jobs (DELETE)` + invalidate cache. |
@@ -66,19 +72,20 @@
 ### 2.5 Reviews & Interactions
 | Method | Endpoint | Auth | Status | Mô tả |
 |---|---|---|---|---|
-| `GET` | `/api/v1/movies/{movie_id}/reviews` | Public / Admin | `200` | Danh sách đánh giá của phim (ẩn `is_hidden: true` với user thường). |
-| `POST` | `/api/v1/movies/{movie_id}/reviews` | Bearer | `201` / `422` | Tạo/cập nhật đánh giá (`rating`: số nguyên nghiêm ngặt `1..5`, 1 review/user/movie), tự tính lại `avg_rating` & `rating_count` bằng Aggregation, ghi `sync_jobs (UPSERT)`. |
+| `GET` | `/api/v1/movies/{movie_id}/reviews` | Public / Admin | `200` / `404` | Danh sách đánh giá của phim (trả `404` nếu phim đã xóa mềm với user thường; ẩn `is_hidden: true`). |
+| `POST` | `/api/v1/movies/{movie_id}/reviews` | Bearer | `201` / `422` | Tạo/cập nhật đánh giá (`rating`: số nguyên nghiêm ngặt `1..5`, `comment`, `is_spoiler: bool`, 1 review/user/movie), tự tính lại `avg_rating` & `rating_count` bằng Aggregation, ghi `sync_jobs (UPSERT)`. |
 | `DELETE` | `/api/v1/reviews/{review_id}` | Owner / Admin | `200` / `403` | Xóa đánh giá, tính lại `avg_rating`, ghi `sync_jobs (DELETE)`. |
-| `POST` | `/api/v1/interactions` | Bearer | `201` | Ghi nhận `VIEW | WATCH | LIKE | WATCHLIST_ADD`, ghi `sync_jobs (UPSERT)`. |
+| `POST` | `/api/v1/interactions` | Bearer | `201` | Ghi nhận `VIEW \| WATCH \| LIKE \| WATCHLIST_ADD`, tự tăng `views_count` khi `WATCH`, ghi `sync_jobs (UPSERT)`. |
 
 ### 2.6 Admin Console (`/api/v1/admin`) — Chỉ `role == "admin"`
 | Method | Endpoint | Auth | Mô tả |
 |---|---|---|---|
 | `GET` | `/api/v1/admin/stats` | **Admin** | Thống kê toàn hệ thống (KPIs, phân bố 1–5★, Top 10 thể loại, Top 8 phim, phim theo thập kỷ, trạng thái `sync_jobs`, bình luận gần đây). |
+| `GET` | `/api/v1/admin/sync-jobs` | **Admin** | Danh sách hàng đợi `sync_jobs` (lọc `status`, `entity_type`) và thống kê toàn bộ Index trên 5 collection MongoDB. |
 | `GET` | `/api/v1/admin/users` | **Admin** | Danh sách user phân trang (kèm `review_count` & `watchlist_count`), lọc `q`, `role`, `is_active`. |
 | `PATCH` | `/api/v1/admin/users/{user_id}` | **Admin** | Khóa/mở tài khoản (`is_active`), đổi phân quyền (`role`). Chặn admin tự khóa/hạ quyền mình (`400`). |
 | `GET` | `/api/v1/admin/reviews` | **Admin** | Danh sách toàn bộ bình luận phục vụ kiểm duyệt (`q`, `rating`, `is_hidden`, `movie_id`). |
-| `PATCH` | `/api/v1/admin/reviews/{review_id}/moderate` | **Admin** | Ẩn/hiện bình luận (`{ "is_hidden": true | false }`) và tự động cập nhật lại `avg_rating` của phim. |
+| `PATCH` | `/api/v1/admin/reviews/{review_id}/moderate` | **Admin** | Ẩn/hiện bình luận (`{ "is_hidden": true \| false }`) và tự động cập nhật lại `avg_rating` của phim. |
 
 ---
 
@@ -97,3 +104,7 @@
 ### TV3 (`app/core/hooks.py` → `CacheHookProvider`)
 - TV3 subclass `CacheHookProvider` (triển khai `get_json`, `set_json`, `invalidate_movie`, `invalidate_movie_lists`, `record_movie_view`, `is_token_blacklisted`, `blacklist_token`) và đăng ký bằng `set_cache_provider(redis_cache_provider)`.
 - Khi Redis mất kết nối, mọi chỗ gọi ở TV1 đều có `try/except` fallback an toàn (`X-Cache: BYPASS` cho reads, fail-open có log warning cho blacklist) nên **API đọc phim và nghiệp vụ cốt lõi vẫn hoạt động bình thường**.
+
+### Frontend Plug-in Slots (cho TV2 & TV3)
+- `frontend/src/components/MovieRow.jsx`: Component hàng phim cuộn ngang tái sử dụng — TV2 truyền danh sách `Gợi ý dành cho bạn` (Neo4j) và TV3 truyền danh sách `Đang hot 24h` / `Tiếp tục xem` (Redis) vào thẳng `CatalogPreviewPage.jsx`.
+- `frontend/src/components/MovieDetailModal.jsx`: Prop `similarMoviesSlot` mở sẵn để TV2 gắn danh sách **Phim tương tự (Neo4j Graph)** ngay trong modal chi tiết phim.

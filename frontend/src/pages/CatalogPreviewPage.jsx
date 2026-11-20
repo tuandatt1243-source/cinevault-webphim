@@ -1061,6 +1061,43 @@ export function CatalogPreviewPage() {
         </main>
       )}
 
+      {/* Minimalist Cinema Footer (shown on Home & Catalog views) */}
+      {view !== 'reels' && (
+        <footer className="mt-8 border-t border-white/8 bg-[#08080A]">
+          <div className="mx-auto flex max-w-[1440px] flex-col items-center justify-between gap-5 px-4 py-8 text-xs text-[#746F67] sm:flex-row sm:px-8">
+            <div className="flex items-center gap-3">
+              <span className="font-editorial text-lg font-bold tracking-tight text-[#E50914]">TITOFILM</span>
+              <span className="text-white/20">·</span>
+              <span>© {new Date().getFullYear()} Titofilm Cinema Archive</span>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-5">
+              <button type="button" onClick={() => setView('reels')} className="hover:text-white">
+                {t('reelsNav')}
+              </button>
+              <button type="button" onClick={handleJumpTimeline} className="hover:text-white">
+                {t('timelineEyebrow')}
+              </button>
+              <button type="button" onClick={() => handleOpenRoulette('any')} className="hover:text-white">
+                Tito Roulette
+              </button>
+              <button type="button" onClick={() => openGenreInGrid('')} className="hover:text-white">
+                {t('catalogNav')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setCmdOpen(true)}
+                className="inline-flex items-center gap-1.5 text-[#A59F95] hover:text-white"
+              >
+                <kbd className="rounded border border-white/15 bg-white/5 px-1.5 py-0.5 font-mono-ledger text-[10px]">
+                  Ctrl K
+                </kbd>
+              </button>
+            </div>
+          </div>
+        </footer>
+      )}
+
       {/* Netflix × Letterboxd Movie Detail Modal */}
       <MovieDetailModal
         movie={activeMovie}
