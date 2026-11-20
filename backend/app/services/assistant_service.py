@@ -21,6 +21,7 @@ from app.services.serializers import serialize_movie
 logger = logging.getLogger("cinevault.assistant")
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 # Rich Vietnamese & English cinema intent dictionary -> canonical MongoDB genres
 GENRE_KEYWORDS: list[tuple[tuple[str, ...], list[str]]] = [
@@ -369,6 +370,81 @@ async def _generate_gemini_reply(
         return None
 
 
+async def _generate_groq_reply(
+    *,
+    message: str,
+    lang: str,
+    movies: list[dict[str, Any]],
+    similar_seed: dict[str, Any] | None,
+    history: list[dict[str, Any]],
+    api_key: str,
+    model: str,
+) -> str | None:
+    """Generate a grounded editorial curator response via Groq OpenAI-compatible API."""
+    lang_name = {
+        "vi": "Vietnamese",
+        "en": "English",
+        "ja": "Japanese",
+        "ko": "Korean",
+        "fr": "French",
+        "zh": "Simplified Chinese",
+    }.get(lang, "Vietnamese")
+
+    catalog_context = [
+        {
+            "title": m["title"],
+            "year": m["release_year"],
+            "runtime_minutes": m["runtime_minutes"],
+            "genres": m["genres"],
+            "directors": m["directors"],
+            "avg_rating": m["avg_rating"],
+            "imdb_rating": m.get("imdb_rating"),
+            "overview": (m.get("overview_i18n") or {}).get(lang) or m.get("overview", "")[:220],
+        }
+        for m in movies
+    ]
+
+    system_text = (
+        f"You are Tito Concierge, an editorial cinema curator for Titofilm. Reply ONLY in {lang_name}. "
+        "CRITICAL GROUNDING RULE: Recommend ONLY films present in the provided MongoDB catalog results. "
+        "Never invent movies outside that list. Keep your reply concise (3-5 short sentences), warm, insightful "
+        "about cinema mood/direction, and explain briefly why these exact titles fit the user's request. No emojis."
+    )
+    recent_turns = [f"{h['role'].upper()}: {h['content'][:160]}" for h in history[-4:]]
+    user_prompt = (
+        f"Recent conversation:\n{chr(10).join(recent_turns) or '(new session)'}\n\n"
+        f"User request: {message}\n"
+        f"Reference film: {similar_seed['title'] if similar_seed else 'None'}\n\n"
+        f"MongoDB Retrieved Movies ({len(catalog_context)}):\n"
+        f"{json.dumps(catalog_context, ensure_ascii=False)}"
+    )
+
+    try:
+        async with httpx.AsyncClient(timeout=12.0) as client:
+            resp = await client.post(
+                GROQ_CHAT_URL,
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system_text},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    "temperature": 0.65,
+                    "max_tokens": 420,
+                },
+            )
+            if resp.status_code != 200:
+                logger.warning("Groq chat HTTP %s", resp.status_code)
+                return None
+            data = resp.json()
+            text = data["choices"][0]["message"]["content"].strip()
+            return text or None
+    except Exception as exc:
+        logger.warning("Groq reply fallback to MongoDB curator: %s", exc)
+        return None
+
+
 def _build_local_curator_reply(
     *,
     lang: str,
@@ -473,10 +549,13 @@ def _serialize_mongo_filter(raw_filter: dict[str, Any]) -> dict[str, Any]:
 
 async def get_assistant_status() -> dict[str, Any]:
     settings = get_settings()
-    enabled = bool(settings.gemini_api_key and settings.gemini_api_key.strip())
+    has_gemini = bool((settings.gemini_api_key or "").strip())
+    has_groq = bool((settings.groq_api_key or "").strip())
+    enabled = has_gemini or has_groq
+    active_model = settings.gemini_model if has_gemini else (settings.groq_model if has_groq else settings.gemini_model)
     return {
         "gemini_enabled": enabled,
-        "model": settings.gemini_model,
+        "model": active_model,
         "mode": "gemini-rag" if enabled else "mongodb-rag",
     }
 
@@ -645,9 +724,10 @@ async def chat_with_concierge(
     retrieval_ms = round((time.perf_counter() - t0) * 1000.0, 2)
     serialized_movies = [serialize_movie(d) for d in docs]
 
-    # 3. Generate grounded reply (Gemini RAG if API key configured, else instant MongoDB curator)
+    # 3. Generate grounded reply (Gemini 3.8 Flash or Groq RAG if configured, else instant MongoDB curator)
     engine = "mongodb-rag"
     reply: str | None = None
+    groq_key = (settings.groq_api_key or "").strip()
     if api_key and serialized_movies:
         reply = await _generate_gemini_reply(
             message=message,
@@ -657,6 +737,18 @@ async def chat_with_concierge(
             history=history,
             api_key=api_key,
             model=model,
+        )
+        if reply:
+            engine = "gemini-rag"
+    elif groq_key and serialized_movies:
+        reply = await _generate_groq_reply(
+            message=message,
+            lang=lang,
+            movies=serialized_movies,
+            similar_seed=similar_seed,
+            history=history,
+            api_key=groq_key,
+            model=settings.groq_model,
         )
         if reply:
             engine = "gemini-rag"
