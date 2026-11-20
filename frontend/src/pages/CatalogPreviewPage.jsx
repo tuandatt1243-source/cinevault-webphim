@@ -56,6 +56,7 @@ export function CatalogPreviewPage() {
   const [reviewsError, setReviewsError] = useState('');
   const [myRating, setMyRating] = useState(5);
   const [myComment, setMyComment] = useState('');
+  const [myExistingReviewId, setMyExistingReviewId] = useState(null);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [likedIds, setLikedIds] = useState({});
 
@@ -165,18 +166,28 @@ export function CatalogPreviewPage() {
     setActiveMovie(movie);
     setMyRating(5);
     setMyComment('');
+    setMyExistingReviewId(null);
     setReviewsError('');
     setReviewsLoading(true);
     try {
       const [freshResult, revResult] = await Promise.allSettled([
         api.getMovie(movie.id, true),
-        api.listMovieReviews(movie.id, { limit: 20 }),
+        api.listMovieReviews(movie.id, { limit: 30 }),
       ]);
       if (freshResult.status === 'fulfilled') {
         setActiveMovie(freshResult.value);
       }
       if (revResult.status === 'fulfilled') {
-        setMovieReviews(revResult.value.items || []);
+        const list = revResult.value.items || [];
+        setMovieReviews(list);
+        if (user) {
+          const mine = list.find((r) => r.user_id === user.id);
+          if (mine) {
+            setMyExistingReviewId(mine.id);
+            setMyRating(mine.rating);
+            setMyComment(mine.comment || '');
+          }
+        }
       } else {
         setMovieReviews([]);
         setReviewsError('Không thể tải bình luận từ máy chủ. Hãy kiểm tra Backend FastAPI.');
@@ -232,25 +243,48 @@ export function CatalogPreviewPage() {
     if (!user || !activeMovie) return;
     setSubmittingReview(true);
     try {
-      await api.upsertReview(activeMovie.id, {
+      const saved = await api.upsertReview(activeMovie.id, {
         rating: Number(myRating),
         comment: myComment.trim(),
       });
+      setMyExistingReviewId(saved.id);
       pushToast({
-        title: 'Đã gửi đánh giá của bạn',
+        title: myExistingReviewId ? 'Đã cập nhật đánh giá' : 'Đã gửi đánh giá của bạn',
         description: `Chấm ${myRating}/5 sao cho “${activeMovie.title}”.`,
         variant: 'success',
       });
-      setMyComment('');
       const [fresh, revRes] = await Promise.all([
         api.getMovie(activeMovie.id, false),
-        api.listMovieReviews(activeMovie.id, { limit: 20 }),
+        api.listMovieReviews(activeMovie.id, { limit: 30 }),
       ]);
       setActiveMovie(fresh);
       setMovieReviews(revRes.items || []);
       loadMovies();
     } catch (err) {
       pushToast({ title: 'Không thể gửi đánh giá', description: err.message, variant: 'danger' });
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleDeleteMyReview = async () => {
+    if (!myExistingReviewId || !activeMovie) return;
+    setSubmittingReview(true);
+    try {
+      await api.deleteReview(myExistingReviewId);
+      setMyExistingReviewId(null);
+      setMyRating(5);
+      setMyComment('');
+      pushToast({ title: 'Đã xóa đánh giá của bạn', variant: 'info' });
+      const [fresh, revRes] = await Promise.all([
+        api.getMovie(activeMovie.id, false),
+        api.listMovieReviews(activeMovie.id, { limit: 30 }),
+      ]);
+      setActiveMovie(fresh);
+      setMovieReviews(revRes.items || []);
+      loadMovies();
+    } catch (err) {
+      pushToast({ title: 'Không thể xóa đánh giá', description: err.message, variant: 'danger' });
     } finally {
       setSubmittingReview(false);
     }
@@ -902,13 +936,29 @@ export function CatalogPreviewPage() {
                     placeholder="Cảm nhận của bạn về kịch bản, diễn xuất, quay phim..."
                     className="w-full border border-[#F3EFE6]/12 bg-[#0E0E12] px-3 py-2 text-sm text-[#F3EFE6] placeholder:text-[#57534E] focus:border-[#F3EFE6]/45 focus:outline-none"
                   />
-                  <div className="flex justify-end">
+                  <div className="flex items-center justify-between gap-2">
+                    {myExistingReviewId ? (
+                      <button
+                        type="button"
+                        disabled={submittingReview}
+                        onClick={handleDeleteMyReview}
+                        className="border border-[#E04848]/40 px-3 py-2 text-xs text-[#E04848] transition-colors hover:bg-[#E04848]/12 disabled:opacity-50"
+                      >
+                        Xóa đánh giá của tôi
+                      </button>
+                    ) : (
+                      <span />
+                    )}
                     <button
                       type="submit"
                       disabled={submittingReview}
                       className="bg-[#D63628] px-4 py-2 text-xs font-semibold tracking-wider text-[#F3EFE6] uppercase hover:bg-[#E54739] disabled:opacity-50"
                     >
-                      {submittingReview ? 'Đang gửi...' : 'Gửi đánh giá'}
+                      {submittingReview
+                        ? 'Đang lưu...'
+                        : myExistingReviewId
+                          ? 'Cập nhật đánh giá'
+                          : 'Gửi đánh giá'}
                     </button>
                   </div>
                 </form>

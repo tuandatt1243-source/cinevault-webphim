@@ -9,7 +9,8 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
  * so real posters load reliably in <5ms without external CDN drops, with graceful typographic fallback.
  */
 export function PosterImage({ movieId, src, title, year, className = '', size = 'md' }) {
-  const resolvedSrc = movieId && src ? `${API_BASE}/movies/${movieId}/poster` : src || '';
+  const versionKey = src ? encodeURIComponent(src.slice(-20)) : 'v1';
+  const resolvedSrc = movieId && src ? `${API_BASE}/movies/${movieId}/poster?v=${versionKey}` : src || '';
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {

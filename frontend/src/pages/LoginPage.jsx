@@ -80,9 +80,9 @@ export function LoginPage() {
   };
 
   return (
-    <div className="cinema-grain flex min-h-dvh bg-[#0B0B0D] text-[#F3EFE6]">
-      {/* Left 58%: Interactive Film Spotlight with Featured Poster above */}
-      <section className="relative hidden w-[58%] flex-col justify-between overflow-hidden border-r border-[#F3EFE6]/10 bg-[#0E0E11] px-10 py-9 xl:px-14 xl:py-10 lg:flex">
+    <div className="cinema-grain flex min-h-dvh w-full overflow-x-hidden bg-[#0B0B0D] text-[#F3EFE6]">
+      {/* Left 52-55%: Interactive Film Spotlight with Featured Poster above */}
+      <section className="relative hidden shrink-0 flex-col justify-between overflow-hidden border-r border-[#F3EFE6]/10 bg-[#0E0E11] px-8 py-8 lg:flex lg:w-[52%] xl:w-[55%] xl:px-12 xl:py-10">
         {/* Subtle Background Poster Mosaic */}
         <div className="pointer-events-none absolute inset-0 grid grid-cols-3 gap-3 p-6 opacity-18">
           {(showcaseMovies.length > 0 ? showcaseMovies : Array.from({ length: 6 })).map((m, idx) => (
@@ -242,9 +242,9 @@ export function LoginPage() {
         )}
       </section>
 
-      {/* Right 42%: Clean Sign-In / Sign-Up Form */}
-      <section className="flex flex-1 flex-col justify-center px-6 py-12 sm:px-12 lg:px-14">
-        <div className="mx-auto w-full max-w-md">
+      {/* Right 45-48%: Clean Sign-In / Sign-Up Form */}
+      <section className="flex min-w-0 flex-1 flex-col justify-center px-6 py-10 sm:px-8 lg:px-10">
+        <div className="mx-auto w-full max-w-sm xl:max-w-md">
           <div className="mb-8 flex items-center justify-between lg:hidden">
             <Link to="/catalog" className="flex items-center gap-2.5">
               <span className="flex h-7 w-7 items-center justify-center bg-[#D63628]">

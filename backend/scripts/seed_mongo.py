@@ -25,6 +25,7 @@ from app.db.schemas import ensure_collections_and_indexes
 
 DATASET_PATH = BACKEND_DIR / "data" / "imdb_top_1000.csv"
 EXTRA_DATASET_PATH = BACKEND_DIR / "data" / "extra_imdb_movies.json"
+POSTER_OVERRIDES_PATH = BACKEND_DIR / "data" / "poster_overrides.json"
 
 # Real YouTube trailer video IDs for iconic films in the IMDb catalog
 CURATED_TRAILERS_BY_TITLE: dict[str, str] = {
@@ -293,6 +294,15 @@ def load_real_movies(limit: int) -> list[dict[str, Any]]:
     if not DATASET_PATH.exists():
         raise FileNotFoundError(f"Real movie dataset not found at {DATASET_PATH}")
 
+    import json
+
+    poster_overrides: dict[str, str] = {}
+    if POSTER_OVERRIDES_PATH.exists():
+        try:
+            poster_overrides = json.loads(POSTER_OVERRIDES_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            poster_overrides = {}
+
     movies: list[dict[str, Any]] = []
     used_slugs: set[str] = set()
     base_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -331,6 +341,7 @@ def load_real_movies(limit: int) -> list[dict[str, Any]]:
             votes = parse_int_or_none(row.get("No_of_Votes") or "") or 10000
             created_at = base_time + timedelta(hours=idx)
 
+            poster = poster_overrides.get(slug) or upgrade_imdb_poster(row.get("Poster_Link") or "")
             movies.append(
                 {
                     "_id": deterministic_oid("movie", slug),
@@ -341,8 +352,8 @@ def load_real_movies(limit: int) -> list[dict[str, Any]]:
                     "release_year": year,
                     "runtime_minutes": parse_runtime(row.get("Runtime") or ""),
                     "certificate": (row.get("Certificate") or "").strip() or None,
-                    "poster_url": upgrade_imdb_poster(row.get("Poster_Link") or ""),
-                    "backdrop_url": upgrade_imdb_poster(row.get("Poster_Link") or ""),
+                    "poster_url": poster,
+                    "backdrop_url": poster,
                     "trailer_url": resolve_trailer_url(title, idx),
                     "genres": genres,
                     "cast": cast,
@@ -362,8 +373,6 @@ def load_real_movies(limit: int) -> list[dict[str, Any]]:
             )
 
     if EXTRA_DATASET_PATH.exists() and len(movies) < limit:
-        import json
-
         extra_raw = json.loads(EXTRA_DATASET_PATH.read_text(encoding="utf-8"))
         for extra_idx, item in enumerate(extra_raw.get("movies", [])):
             if len(movies) >= limit:
@@ -381,7 +390,7 @@ def load_real_movies(limit: int) -> list[dict[str, Any]]:
             genres = [g.strip() for g in item.get("genres", []) if isinstance(g, str) and g.strip()] or ["Drama"]
             directors = [d.strip() for d in (item.get("director") or "").split(",") if d.strip() and d.strip() != "N/A"]
             cast = [a.strip() for a in (item.get("actors") or "").split(",") if a.strip()][:6]
-            poster = upgrade_imdb_poster(item.get("posterUrl") or "")
+            poster = poster_overrides.get(slug) or upgrade_imdb_poster(item.get("posterUrl") or "")
             idx_num = len(movies)
             created_at = base_time + timedelta(hours=idx_num)
 

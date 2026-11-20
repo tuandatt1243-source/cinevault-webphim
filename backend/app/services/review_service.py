@@ -66,6 +66,11 @@ async def list_movie_reviews(
     limit: int = 20,
 ) -> dict[str, Any]:
     movie_oid = parse_object_id(movie_id_str, "movie_id")
+    if not include_hidden:
+        active_movie = await db.movies.find_one({"_id": movie_oid, "is_deleted": False}, {"_id": 1})
+        if active_movie is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Movie not found.")
+
     match_stage: dict[str, Any] = {"movie_id": movie_oid}
     if not include_hidden:
         match_stage["is_hidden"] = False
