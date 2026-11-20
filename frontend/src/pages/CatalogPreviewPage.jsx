@@ -471,9 +471,9 @@ export function CatalogPreviewPage() {
   const navTabs = [
     { key: 'home', label: t('homeNav') },
     { key: 'reels', label: t('reelsNav'), isLive: true },
-    { key: 'browse', label: `${t('catalogNav')} (${meta.total || 1055})` },
+    { key: 'browse', label: t('catalogNav') },
     { key: 'popular', label: t('popularNav') },
-    ...(user ? [{ key: 'watchlist', label: `${t('watchlistNav')} (${user.watchlist?.length || 0})` }] : []),
+    ...(user ? [{ key: 'watchlist', label: t('watchlistNav'), count: user.watchlist?.length || 0 }] : []),
   ];
 
   const gridItems = view === 'watchlist' ? watchlistMovies : movies;
@@ -547,6 +547,11 @@ export function CatalogPreviewPage() {
                       />
                     )}
                     <span>{item.label}</span>
+                    {item.count > 0 && (
+                      <span className="font-mono-ledger rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] leading-none text-[#C9C3B8]">
+                        {item.count}
+                      </span>
+                    )}
                   </button>
                 );
               })}
