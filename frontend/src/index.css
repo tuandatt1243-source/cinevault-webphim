@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+:root {
+  --bg-canvas: #0B0B0D;
+  --bg-surface: #131317;
+  --bg-elevated: #1B1B21;
+  --border-hairline: rgba(243, 239, 230, 0.09);
+  --border-strong: rgba(243, 239, 230, 0.22);
+  --text-primary: #F3EFE6;
+  --text-secondary: #A59F95;
+  --text-muted: #746F67;
+  --accent-crimson: #D63628;
+  --accent-crimson-hover: #E54739;
+  --accent-gold: #E0A43B;
+  --status-ok: #3DA86E;
+  --status-warn: #D99B26;
+  --status-danger: #E04848;
+}
+
+@layer base {
+  html {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+    color-scheme: dark;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-height: 100dvh;
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  button:not(:disabled),
+  a[href],
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 2px;
+  }
+}
+
+.font-editorial {
+  font-family: "Newsreader", Georgia, serif;
+  font-optical-sizing: auto;
+  letter-spacing: -0.01em;
+}
+
+.font-mono-ledger {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Subtle 35mm celluloid film-grain texture (non-interactive, 2.2% opacity) */
+.cinema-grain::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0.024;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Custom restrained editorial scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0B0B0D;
+}
+::-webkit-scrollbar-thumb {
+  background: #282830;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3D3D48;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

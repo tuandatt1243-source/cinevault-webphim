@@ -1,0 +1,122 @@
+[
+  {
+    "case": "Movies Compound Filter (Drama, year>=2000, sort avg_rating)",
+    "collection": "movies",
+    "docs_in_collection": 1055,
+    "indexed": {
+      "stage": "IXSCAN",
+      "nReturned": 20,
+      "totalKeysExamined": 389,
+      "totalDocsExamined": 20,
+      "explainExecMs": 1.0,
+      "avgClientMs": 1.218,
+      "p95ClientMs": 1.482
+    },
+    "collscan": {
+      "stage": "COLLSCAN",
+      "nReturned": 20,
+      "totalKeysExamined": 0,
+      "totalDocsExamined": 1055,
+      "explainExecMs": 1.0,
+      "avgClientMs": 1.776,
+      "p95ClientMs": 2.324
+    },
+    "speedup_x": 1.46
+  },
+  {
+    "case": "Users Unique Email Lookup (Login)",
+    "collection": "users",
+    "docs_in_collection": 220,
+    "indexed": {
+      "stage": "IXSCAN",
+      "nReturned": 1,
+      "totalKeysExamined": 1,
+      "totalDocsExamined": 1,
+      "explainExecMs": 0.0,
+      "avgClientMs": 0.467,
+      "p95ClientMs": 0.555
+    },
+    "collscan": {
+      "stage": "COLLSCAN",
+      "nReturned": 1,
+      "totalKeysExamined": 0,
+      "totalDocsExamined": 220,
+      "explainExecMs": 0.0,
+      "avgClientMs": 0.538,
+      "p95ClientMs": 0.638
+    },
+    "speedup_x": 1.15
+  },
+  {
+    "case": "Movies Full-Text Search ($text index vs $regex COLLSCAN)",
+    "collection": "movies",
+    "docs_in_collection": 1055,
+    "indexed": {
+      "stage": "TEXT_MATCH",
+      "nReturned": 9,
+      "totalKeysExamined": 13,
+      "totalDocsExamined": 18,
+      "explainExecMs": 2.0,
+      "avgClientMs": 0.587,
+      "p95ClientMs": 0.692
+    },
+    "collscan": {
+      "stage": "COLLSCAN",
+      "nReturned": 9,
+      "totalKeysExamined": 0,
+      "totalDocsExamined": 1055,
+      "explainExecMs": 3.0,
+      "avgClientMs": 3.527,
+      "p95ClientMs": 4.106
+    },
+    "speedup_x": 6.01
+  },
+  {
+    "case": "Reviews by Movie + Sort Newest (Seeded 6,000+ docs)",
+    "collection": "reviews",
+    "docs_in_collection": 14835,
+    "indexed": {
+      "stage": "IXSCAN",
+      "nReturned": 20,
+      "totalKeysExamined": 20,
+      "totalDocsExamined": 20,
+      "explainExecMs": 0.0,
+      "avgClientMs": 0.592,
+      "p95ClientMs": 0.776
+    },
+    "collscan": {
+      "stage": "COLLSCAN",
+      "nReturned": 20,
+      "totalKeysExamined": 0,
+      "totalDocsExamined": 14835,
+      "explainExecMs": 7.0,
+      "avgClientMs": 8.643,
+      "p95ClientMs": 9.978
+    },
+    "speedup_x": 14.6
+  },
+  {
+    "case": "50,000 Reviews Scale Test (movie_id + is_hidden + sort created_at)",
+    "collection": "_bench_reviews_50k",
+    "docs_in_collection": 50000,
+    "indexed": {
+      "stage": "IXSCAN",
+      "nReturned": 20,
+      "totalKeysExamined": 20,
+      "totalDocsExamined": 20,
+      "explainExecMs": 7.0,
+      "avgClientMs": 0.569,
+      "p95ClientMs": 0.687
+    },
+    "collscan": {
+      "stage": "COLLSCAN",
+      "nReturned": 20,
+      "totalKeysExamined": 0,
+      "totalDocsExamined": 50000,
+      "explainExecMs": 21.0,
+      "avgClientMs": 22.732,
+      "p95ClientMs": 24.122
+    },
+    "speedup_x": 39.95
+  }
+]
