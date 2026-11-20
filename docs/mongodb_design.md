@@ -1,7 +1,7 @@
 # Tài Liệu Thiết Kế MongoDB & Bảo Mật Backend (TV1)
 
 ## 1. Tổng Quan Kiến Trúc Dữ Liệu
-MongoDB đóng vai trò **Source of Truth (Kho dữ liệu gốc)** của hệ thống **CineVault — Website quản lý phim tích hợp gợi ý phim cá nhân hóa**, chạy hoàn toàn **Async** trên FastAPI thông qua `pymongo.AsyncMongoClient`.
+MongoDB đóng vai trò **Source of Truth (Kho dữ liệu gốc)** của hệ thống **Titofilm — Website quản lý phim tích hợp gợi ý phim cá nhân hóa**, chạy hoàn toàn **Async** trên FastAPI thông qua `pymongo.AsyncMongoClient`.
 
 ### 5 Collections Chính
 1. **`users`**: Lưu hồ sơ tài khoản, mật khẩu hash `bcrypt` (12 rounds), phân quyền `role` (`user | admin`), trạng thái khóa `is_active`, sở thích `favorite_genres`, và mảng tham chiếu `watchlist: [ObjectId]`.

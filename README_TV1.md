@@ -1,4 +1,4 @@
-# CineVault — Hướng Dẫn Chạy & Kiểm Thử Phần TV1 (Windows)
+# Titofilm — Hướng Dẫn Chạy & Kiểm Thử Phần TV1 (Windows)
 
 > **Phạm vi TV1**: MongoDB (5 collections, JSON Schema Validation, Indexes, Aggregation) · FastAPI Async Backend (Auth, JWT, RBAC, CRUD Phim Soft Delete, Reviews, Watchlist, Admin APIs) · Seed Idempotent (600 phim thực tế, 220 user, 6.000+ đánh giá) · Giao diện Admin UI (React/Vite/Tailwind) · Kiểm thử & Benchmark MongoDB.
 

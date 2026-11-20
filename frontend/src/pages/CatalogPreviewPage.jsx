@@ -394,7 +394,7 @@ export function CatalogPreviewPage() {
               className="flex items-center gap-1.5 text-left"
             >
               <span className="font-editorial text-2xl font-bold tracking-tight text-[#E50914]">
-                CINEVAULT
+                TITOFILM
               </span>
             </button>
 

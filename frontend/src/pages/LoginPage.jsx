@@ -112,7 +112,7 @@ export function LoginPage() {
             <span className="flex h-8 w-8 items-center justify-center bg-[#D63628] text-[#F3EFE6]">
               <Clapperboard className="h-4 w-4" aria-hidden="true" />
             </span>
-            <span className="font-editorial text-2xl font-bold tracking-tight">CineVault</span>
+            <span className="font-editorial text-2xl font-bold tracking-tight">Titofilm</span>
           </Link>
           <div className="flex items-center gap-2.5">
             <LanguageSwitcher compact />
@@ -209,7 +209,7 @@ export function LoginPage() {
         ) : (
           <div className="relative z-10 my-auto max-w-lg">
             <h1 className="font-editorial text-4xl font-semibold leading-[1.2] text-[#F3EFE6]">
-              CineVault
+              Titofilm
             </h1>
           </div>
         )}
@@ -257,7 +257,7 @@ export function LoginPage() {
               <span className="flex h-7 w-7 items-center justify-center bg-[#D63628]">
                 <Clapperboard className="h-4 w-4" aria-hidden="true" />
               </span>
-              <span className="font-editorial text-xl font-bold">CineVault</span>
+              <span className="font-editorial text-xl font-bold">Titofilm</span>
             </Link>
             <LanguageSwitcher compact />
           </div>

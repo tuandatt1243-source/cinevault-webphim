@@ -13,7 +13,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    app_name: str = "CineVault API"
+    app_name: str = "Titofilm API"
     api_v1_prefix: str = "/api/v1"
 
     # MongoDB (TV1 - Source of Truth)

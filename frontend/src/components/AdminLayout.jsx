@@ -44,7 +44,7 @@ export function AdminLayout() {
               </span>
               <div>
                 <p className="font-editorial text-xl font-bold leading-none tracking-tight text-[#F3EFE6]">
-                  CineVault
+                  Titofilm
                 </p>
                 <p className="mt-1 text-[11px] text-[#746F67]">{t('adminSubtitle')}</p>
               </div>
@@ -149,7 +149,7 @@ export function AdminLayout() {
             >
               <Menu className="h-4 w-4" aria-hidden="true" />
             </button>
-            <span className="font-editorial text-lg font-bold tracking-tight">CineVault</span>
+            <span className="font-editorial text-lg font-bold tracking-tight">Titofilm</span>
           </div>
           <LanguageSwitcher compact />
         </header>

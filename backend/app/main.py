@@ -36,7 +36,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version="1.0.0",
-        description="CineVault — Polyglot NoSQL Movie Management & Personalized Recommendation Platform (TV1 Core)",
+        description="Titofilm — Polyglot NoSQL Movie Management & Personalized Recommendation Platform (TV1 Core)",
         lifespan=lifespan,
     )
 

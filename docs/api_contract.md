@@ -1,4 +1,4 @@
-# CineVault — API Contract & Integration Specification (TV1 ↔ TV2 ↔ TV3)
+# Titofilm — API Contract & Integration Specification (TV1 ↔ TV2 ↔ TV3)
 
 > **Phiên bản**: `1.0.0` · **Base URL**: `/api/v1` · **Nguồn dữ liệu gốc**: MongoDB (`cinevault`)  
 > **Quy ước ID bắt buộc**: Toàn bộ MongoDB `ObjectId` được ép sang **chuỗi 24 ký tự hex** (`id: string`) khi trả qua API, đồng bộ sang Neo4j (TV2) và lưu key trên Redis (TV3).

@@ -23,7 +23,7 @@ export function PosterImage({ movieId, src, title, year, className = '', size = 
         className={`relative flex aspect-[2/3] w-full flex-col justify-between overflow-hidden border border-[#F3EFE6]/12 bg-[#16161B] p-2.5 text-[#F3EFE6] ${className}`}
       >
         <div className="flex items-center justify-between font-mono-ledger text-[10px] tracking-[0.18em] text-[#746F67] uppercase">
-          <span>CV</span>
+          <span>TF</span>
         </div>
         <div className="my-auto flex flex-col items-center text-center">
           <Film className="mb-1.5 h-4 w-4 text-[#D63628]/80" aria-hidden="true" />

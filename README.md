@@ -1,4 +1,4 @@
-# CineVault — Website Quản Lý Phim Tích Hợp Gợi Ý Phim Cá Nhân Hóa
+# Titofilm — Website Quản Lý Phim Tích Hợp Gợi Ý Phim Cá Nhân Hóa
 
 Hệ thống quản lý phim và gợi ý phim cá nhân hóa theo kiến trúc **Polyglot NoSQL**:
 - **MongoDB (TV1 — Source of Truth)**: Lưu trữ `movies`, `users`, `reviews`, `interactions`, `sync_jobs` với `$jsonSchema` Validation, Unique/Text/Compound Indexes và Aggregation Pipelines.

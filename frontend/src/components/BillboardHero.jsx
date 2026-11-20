@@ -73,7 +73,7 @@ export function BillboardHero({
         {/* Top-Left Brand Mark */}
         <div className="absolute left-6 top-6 z-10 flex items-center gap-2 sm:left-10 sm:top-8">
           <span className="flex h-7 w-7 items-center justify-center rounded bg-[#E50914] font-editorial text-lg font-bold text-white shadow-lg">
-            C
+            T
           </span>
           <span className="font-mono-ledger text-[11px] font-semibold tracking-[0.26em] text-[#F3EFE6]/85 uppercase">
             {t('featuredShort')}
@@ -204,7 +204,7 @@ export function BillboardHero({
                 <span className="rounded bg-[#E50914] px-1.5 py-0.5 font-mono-ledger text-[10px] font-bold">
                   TOP 10
                 </span>
-                <span>#{activeIndex + 1} CineVault</span>
+                <span>#{activeIndex + 1} Titofilm</span>
               </span>
             </div>
 
