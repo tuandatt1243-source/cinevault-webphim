@@ -21,7 +21,21 @@ from app.services.serializers import serialize_movie
 logger = logging.getLogger("cinevault.assistant")
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+GEMINI_FALLBACK_MODELS = (
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-3.8-flash",
+    "gemini-3.6-flash",
+)
 GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+
+def _gemini_model_chain(primary: str) -> list[str]:
+    chain: list[str] = []
+    for m in (primary, *GEMINI_FALLBACK_MODELS):
+        if m and m not in chain:
+            chain.append(m)
+    return chain
 
 # Rich Vietnamese & English cinema intent dictionary -> canonical MongoDB genres
 GENRE_KEYWORDS: list[tuple[tuple[str, ...], list[str]]] = [
@@ -275,23 +289,24 @@ async def _enhance_intent_with_gemini(message: str, api_key: str, model: str) ->
         '"director": string|null, "actor": string|null, "similar_to": string|null, "keywords": string[]}\n'
         f"User request: {message}"
     )
-    url = f"{GEMINI_API_BASE}/{model}:generateContent"
     payload = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json", "maxOutputTokens": 220},
     }
-    try:
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            resp = await client.post(url, params={"key": api_key}, json=payload)
-            if resp.status_code != 200:
-                return None
-            data = resp.json()
-            text = data["candidates"][0]["content"]["parts"][0]["text"]
-            parsed = json.loads(text)
-            if isinstance(parsed, dict):
-                return parsed
-    except Exception as exc:
-        logger.debug("Gemini intent enhancement skipped: %s", exc)
+    async with httpx.AsyncClient(timeout=7.0) as client:
+        for candidate_model in _gemini_model_chain(model)[:2]:
+            url = f"{GEMINI_API_BASE}/{candidate_model}:generateContent"
+            try:
+                resp = await client.post(url, params={"key": api_key}, json=payload)
+                if resp.status_code != 200:
+                    continue
+                data = resp.json()
+                text = data["candidates"][0]["content"]["parts"][0]["text"]
+                parsed = json.loads(text)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception as exc:
+                logger.debug("Gemini intent enhancement skipped on %s: %s", candidate_model, exc)
     return None
 
 
@@ -350,24 +365,26 @@ async def _generate_gemini_reply(
         f"{json.dumps(catalog_context, ensure_ascii=False)}"
     )
 
-    url = f"{GEMINI_API_BASE}/{model}:generateContent"
     payload = {
         "systemInstruction": {"parts": [{"text": system_text}]},
         "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
         "generationConfig": {"temperature": 0.65, "maxOutputTokens": 420},
     }
-    try:
-        async with httpx.AsyncClient(timeout=12.0) as client:
-            resp = await client.post(url, params={"key": api_key}, json=payload)
-            if resp.status_code != 200:
-                logger.warning("Gemini generateContent HTTP %s", resp.status_code)
-                return None
-            data = resp.json()
-            text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-            return text or None
-    except Exception as exc:
-        logger.warning("Gemini reply fallback to MongoDB curator: %s", exc)
-        return None
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        for candidate_model in _gemini_model_chain(model):
+            url = f"{GEMINI_API_BASE}/{candidate_model}:generateContent"
+            try:
+                resp = await client.post(url, params={"key": api_key}, json=payload)
+                if resp.status_code != 200:
+                    logger.warning("Gemini %s HTTP %s; trying fallback", candidate_model, resp.status_code)
+                    continue
+                data = resp.json()
+                text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                if text:
+                    return text
+            except Exception as exc:
+                logger.warning("Gemini %s failed (%s); trying fallback", candidate_model, exc)
+    return None
 
 
 async def _generate_groq_reply(

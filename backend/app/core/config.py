@@ -42,9 +42,9 @@ class Settings(BaseSettings):
     seed_user_count: int = 220
     seed_review_target: int = 8800
 
-    # Tito Concierge AI (Optional Gemini 3.8 Flash / Groq RAG over MongoDB)
+    # Tito Concierge AI (Optional Gemini 3.5 Flash-Lite / Groq RAG over MongoDB)
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-3.8-flash"
+    gemini_model: str = "gemini-3.5-flash-lite"
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
 
