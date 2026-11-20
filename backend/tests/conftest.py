@@ -39,7 +39,7 @@ async def client(test_db) -> AsyncIterator[AsyncClient]:
 async def admin_account(test_db) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     doc = {
-        "email": "admin.test@cinevault.local",
+        "email": "admin.test@titofilm.local",
         "password_hash": hash_password("Admin@123"),
         "full_name": "Test Admin",
         "role": "admin",
@@ -60,7 +60,7 @@ async def admin_account(test_db) -> dict[str, Any]:
 async def user_account(test_db) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     doc = {
-        "email": "viewer.test@cinevault.local",
+        "email": "viewer.test@titofilm.local",
         "password_hash": hash_password("User@123"),
         "full_name": "Test Viewer",
         "role": "user",

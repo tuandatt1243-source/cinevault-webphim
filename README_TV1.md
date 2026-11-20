@@ -21,8 +21,8 @@ cd d:\webphim\backend
 ```
 
 **Tài khoản mẫu sau khi seed:**
-- **Admin**: `admin@cinevault.local` / `Admin@123`
-- **User**: `minh.anh@cinevault.local` / `User@123`
+- **Admin**: `admin@titofilm.local` / `Admin@123`
+- **User**: `minh.anh@titofilm.local` / `User@123`
 
 ## 3. Chạy Backend FastAPI (Async)
 ```powershell

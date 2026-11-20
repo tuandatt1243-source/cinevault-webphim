@@ -75,10 +75,10 @@ export function LoginPage() {
     setMode('login');
     setError('');
     if (role === 'admin') {
-      setEmail('admin@cinevault.local');
+      setEmail('admin@titofilm.local');
       setPassword('Admin@123');
     } else {
-      setEmail('minh.anh@cinevault.local');
+      setEmail('minh.anh@titofilm.local');
       setPassword('User@123');
     }
   };

@@ -443,12 +443,12 @@ def build_users(user_count: int, rng: random.Random) -> list[tuple[dict[str, Any
     user_hash = hash_password("User@123")
 
     fixed_accounts = [
-        ("admin@cinevault.local", "Nguyễn Hữu Thành (Admin)", "admin", admin_hash, PERSONAS[0]),
-        ("minh.anh@cinevault.local", "Trần Minh Anh", "user", user_hash, PERSONAS[0]),
-        ("duc.thinh@cinevault.local", "Lê Đức Thịnh", "user", user_hash, PERSONAS[1]),
-        ("linh.chi@cinevault.local", "Phạm Linh Chi", "user", user_hash, PERSONAS[2]),
-        ("quoc.bao@cinevault.local", "Hoàng Quốc Bảo", "user", user_hash, PERSONAS[3]),
-        ("thao.vy@cinevault.local", "Vũ Thảo Vy", "user", user_hash, PERSONAS[5]),
+        ("admin@titofilm.local", "Nguyễn Hữu Thành (Admin)", "admin", admin_hash, PERSONAS[0]),
+        ("minh.anh@titofilm.local", "Trần Minh Anh", "user", user_hash, PERSONAS[0]),
+        ("duc.thinh@titofilm.local", "Lê Đức Thịnh", "user", user_hash, PERSONAS[1]),
+        ("linh.chi@titofilm.local", "Phạm Linh Chi", "user", user_hash, PERSONAS[2]),
+        ("quoc.bao@titofilm.local", "Hoàng Quốc Bảo", "user", user_hash, PERSONAS[3]),
+        ("thao.vy@titofilm.local", "Vũ Thảo Vy", "user", user_hash, PERSONAS[5]),
     ]
 
     users: list[tuple[dict[str, Any], dict[str, Any]]] = []
@@ -477,7 +477,7 @@ def build_users(user_count: int, rng: random.Random) -> list[tuple[dict[str, Any
         mn = VIET_MIDDLE_NAMES[(i * 7) % len(VIET_MIDDLE_NAMES)]
         fn = VIET_FIRST_NAMES[(i * 11) % len(VIET_FIRST_NAMES)]
         full_name = f"{ln} {mn} {fn}"
-        email = f"cinephile.{i:03d}@cinevault.local"
+        email = f"cinephile.{i:03d}@titofilm.local"
         ts = base_time + timedelta(hours=24 + i * 3)
         # Keep ~3% accounts suspended for realistic Admin Users management demo
         is_active = (i % 35 != 0)
@@ -601,6 +601,17 @@ async def seed_database() -> dict[str, int]:
         ]
         if user_ops:
             await db.users.bulk_write(user_ops, ordered=False)
+
+        # Resolve canonical user _ids from MongoDB in case users existed beforehand
+        email_to_uid: dict[str, ObjectId] = {}
+        async for existing_u in db.users.find(
+            {"email": {"$in": [u["email"] for u, _ in user_pairs]}},
+            {"_id": 1, "email": 1},
+        ):
+            email_to_uid[existing_u["email"]] = existing_u["_id"]
+        for udoc, _ in user_pairs:
+            if udoc["email"] in email_to_uid:
+                udoc["_id"] = email_to_uid[udoc["email"]]
 
         # 3. Seed 6,000+ persona-clustered reviews + 4,500+ interactions (100% idempotent)
         per_user_reviews = max(25, (settings.seed_review_target // len(user_pairs)) + 1)
@@ -749,8 +760,8 @@ async def main() -> None:
     for k, v in counts.items():
         print(f"  - {k}: {v:,}")
     print("\nDemo credentials:")
-    print("  Admin: admin@cinevault.local / Admin@123")
-    print("  User : minh.anh@cinevault.local / User@123")
+    print("  Admin: admin@titofilm.local / Admin@123")
+    print("  User : minh.anh@titofilm.local / User@123")
 
 
 if __name__ == "__main__":

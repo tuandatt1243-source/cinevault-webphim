@@ -177,7 +177,7 @@ async def main() -> None:
         )
 
         # Case 2: Users Unique Email Lookup (tail user so COLLSCAN scans entire collection)
-        q2 = {"email": "cinephile.214@cinevault.local"}
+        q2 = {"email": "cinephile.214@titofilm.local"}
         ix2 = await run_explain_and_time(db, "users", q2, hint="uq_users_email", limit=1)
         cs2 = await run_explain_and_time(db, "users", q2, hint={"$natural": 1}, limit=1)
         cases.append(

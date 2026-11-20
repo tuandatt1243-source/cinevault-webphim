@@ -6,7 +6,7 @@ import pytest
 @pytest.mark.asyncio
 async def test_register_login_and_duplicate_email_rejected(client):
     payload = {
-        "email": "new.cinephile@cinevault.local",
+        "email": "new.cinephile@titofilm.local",
         "password": "StrongPassword@123",
         "full_name": "Nguyễn Minh Khoa",
         "favorite_genres": ["Drama", "Sci-Fi"],
