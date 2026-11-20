@@ -1,15 +1,5 @@
 import { useEffect, useState } from 'react';
-import {
-  Brain,
-  Clock,
-  Dice5,
-  Flame,
-  Heart,
-  History,
-  Moon,
-  Sparkles,
-  X,
-} from 'lucide-react';
+import { Shuffle, X } from 'lucide-react';
 import { api } from '../api/client';
 import { useLanguage } from '../context/LanguageContext';
 import { MovieRow } from './MovieRow';
@@ -17,51 +7,120 @@ import { MovieRow } from './MovieRow';
 export const MOOD_PRESETS = [
   {
     key: 'mindbend',
-    icon: Brain,
-    accent: '#60A5FA',
+    index: '01',
+    tag: 'SCI-FI · MYSTERY',
+    ytStill: 'YoHD9XEInc0', // Inception
     params: { genres: 'Sci-Fi,Mystery,Thriller', min_rating: 3.8, sort: 'views', limit: 15 },
     labelKey: 'moodMindbend',
   },
   {
     key: 'emotional',
-    icon: Heart,
-    accent: '#F472B6',
+    index: '02',
+    tag: 'DRAMA · ROMANCE',
+    ytStill: 'bLvqoHBptjg', // Forrest Gump
     params: { genres: 'Drama,Romance,Biography', min_rating: 4.0, sort: 'rating', limit: 15 },
     labelKey: 'moodEmotional',
   },
   {
     key: 'adrenaline',
-    icon: Flame,
-    accent: '#FB923C',
+    index: '03',
+    tag: 'ACTION · THRILLER',
+    ytStill: 'EXeTwQWrcwY', // The Dark Knight
     params: { genres: 'Action,Adventure,War', sort: 'views', limit: 15 },
     labelKey: 'moodAdrenaline',
   },
   {
     key: 'quick',
-    icon: Clock,
-    accent: '#34D399',
+    index: '04',
+    tag: '≤ 100 MIN',
+    ytStill: 'CZ1CATNbXg0', // WALL-E
     params: { max_runtime: 100, sort: 'rating', limit: 15 },
     labelKey: 'moodQuick',
   },
   {
     key: 'classic',
-    icon: History,
-    accent: '#E0A43B',
+    index: '05',
+    tag: 'PRE-2000 · IMDB 8+',
+    ytStill: 'qtRKdVHc-cE', // Fight Club
     params: { year_to: 1999, min_imdb: 8.0, sort: 'views', limit: 15 },
     labelKey: 'moodClassic',
   },
   {
     key: 'dark',
-    icon: Moon,
-    accent: '#F87171',
+    index: '06',
+    tag: 'CRIME · NOIR',
+    ytStill: 's7EdQ4FqbhY', // Pulp Fiction
     params: { genres: 'Horror,Crime,Film-Noir', sort: 'views', limit: 15 },
     labelKey: 'moodDark',
   },
 ];
 
+function MoodBackdropCard({ preset, label, selected, onClick }) {
+  const [imgSrc, setImgSrc] = useState(`https://i.ytimg.com/vi/${preset.ytStill}/maxresdefault.jpg`);
+
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className={`group relative aspect-[16/10] w-full overflow-hidden rounded-xl border text-left transition-all duration-300 ${
+        selected
+          ? 'border-[#F3EFE6] ring-1 ring-[#F3EFE6]/40 shadow-[0_14px_36px_rgba(0,0,0,0.7)]'
+          : 'border-white/10 hover:border-white/35'
+      }`}
+    >
+      {/* Real Dark-Graded Widescreen Film Still */}
+      <img
+        src={imgSrc}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onError={() => {
+          if (imgSrc.includes('maxresdefault.jpg')) {
+            setImgSrc(`https://i.ytimg.com/vi/${preset.ytStill}/hqdefault.jpg`);
+          }
+        }}
+        className={`h-full w-full object-cover object-center transition-all duration-500 ease-out ${
+          selected
+            ? 'scale-105 brightness-[0.68] saturate-100'
+            : 'brightness-[0.48] saturate-[0.72] group-hover:scale-105 group-hover:brightness-[0.65] group-hover:saturate-100'
+        }`}
+      />
+
+      {/* Deep Cinema Vignette for Razor-Sharp Legibility */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'linear-gradient(180deg, rgba(11,11,13,0.35) 0%, rgba(11,11,13,0.18) 38%, rgba(11,11,13,0.92) 100%)',
+        }}
+      />
+
+      {/* Top Row: Minimal Film Index + Active Indicator */}
+      <div className="absolute inset-x-3 top-2.5 flex items-center justify-between">
+        <span className="font-mono-ledger text-[10px] tracking-[0.2em] text-white/55">
+          {preset.index}
+        </span>
+        {selected && <span className="h-1.5 w-1.5 rounded-full bg-[#E50914]" />}
+      </div>
+
+      {/* Bottom Row: Pure Editorial Cinema Typography (Zero Icons) */}
+      <div className="absolute inset-x-3 bottom-2.5">
+        <p className="font-mono-ledger text-[9px] tracking-[0.14em] text-[#C9C3B8]/80 uppercase">
+          {preset.tag}
+        </p>
+        <p className="font-editorial mt-0.5 line-clamp-1 text-base font-semibold leading-snug text-[#F3EFE6] group-hover:text-white">
+          {label}
+        </p>
+      </div>
+    </button>
+  );
+}
+
 /**
- * Tactile Mood & Vibe Tuner bar (Netflix 2026 + MUBI curation).
- * Lets viewers pick a mood or duration in 1 click, or launch Tito Roulette.
+ * Apple TV+ × Netflix Visual Cinema Mood Deck.
+ * Uses real dark-graded widescreen film stills & editorial typography — zero pastel/AI icons.
  */
 export function MoodTunerBar({
   onOpenRoulette,
@@ -106,76 +165,58 @@ export function MoodTunerBar({
   const currentPreset = MOOD_PRESETS.find((m) => m.key === activeMood);
 
   return (
-    <section className="space-y-6">
-      <div className="rounded-2xl border border-white/10 bg-[#121217]/85 p-4 backdrop-blur-md sm:p-5">
-        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#E50914]/15 text-[#E50914]">
-              <Sparkles className="h-4 w-4" aria-hidden="true" />
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-white">{t('moodHeading')}</p>
-              <p className="text-xs text-[#8C877E]">{t('moodSub')}</p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => onOpenRoulette(activeMood || 'any')}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#E50914] to-[#B81D24] px-5 py-2.5 text-xs font-semibold text-white shadow-[0_8px_24px_rgba(229,9,20,0.35)] transition-transform duration-150 hover:scale-[1.02] hover:brightness-110"
-          >
-            <Dice5 className="h-4 w-4" aria-hidden="true" />
-            <span>{t('rouletteCta')}</span>
-          </button>
+    <section className="space-y-5">
+      {/* Seamless Editorial Header (No SaaS Box, No Sparkles) */}
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+        <div>
+          <h2 className="font-editorial text-xl font-semibold tracking-tight text-[#F3EFE6] sm:text-2xl">
+            {t('moodHeading')}
+          </h2>
+          <p className="mt-0.5 text-xs text-[#8C877E]">{t('moodSub')}</p>
         </div>
 
-        {/* Interactive Mood Pills */}
-        <div className="mt-4 flex flex-wrap gap-2">
-          {MOOD_PRESETS.map((preset) => {
-            const Icon = preset.icon;
-            const selected = activeMood === preset.key;
-            return (
-              <button
-                key={preset.key}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => setActiveMood((cur) => (cur === preset.key ? null : preset.key))}
-                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-medium transition-all duration-200 ${
-                  selected
-                    ? 'border-white bg-white text-[#0B0B0D] shadow-md'
-                    : 'border-white/12 bg-white/[0.03] text-[#D8D3C8] hover:border-white/35 hover:bg-white/[0.08] hover:text-white'
-                }`}
-              >
-                <Icon
-                  className="h-3.5 w-3.5"
-                  style={{ color: selected ? '#0B0B0D' : preset.accent }}
-                  aria-hidden="true"
-                />
-                <span>{t(preset.labelKey)}</span>
-              </button>
-            );
-          })}
-
+        <div className="flex items-center gap-2">
           {activeMood && (
             <button
               type="button"
               onClick={() => setActiveMood(null)}
-              className="inline-flex items-center gap-1 rounded-full border border-white/12 px-3 py-2 text-xs text-[#8C877E] hover:border-white/35 hover:text-white"
+              className="inline-flex items-center gap-1 rounded-full border border-white/14 px-3 py-2 text-xs text-[#A59F95] transition-colors hover:border-white/35 hover:text-white"
             >
               <X className="h-3.5 w-3.5" aria-hidden="true" />
               <span>{t('clearFilter')}</span>
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => onOpenRoulette(activeMood || 'any')}
+            className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#F3EFE6]/25 bg-[#F3EFE6] px-4 py-2 text-xs font-semibold text-[#0B0B0D] transition-colors hover:bg-white"
+          >
+            <Shuffle className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>{t('rouletteCta')}</span>
+          </button>
         </div>
       </div>
 
-      {/* Instant Mood Result Row */}
+      {/* 6 Widescreen Film Still Mood Cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {MOOD_PRESETS.map((preset) => (
+          <MoodBackdropCard
+            key={preset.key}
+            preset={preset}
+            label={t(preset.labelKey)}
+            selected={activeMood === preset.key}
+            onClick={() => setActiveMood((cur) => (cur === preset.key ? null : preset.key))}
+          />
+        ))}
+      </div>
+
+      {/* Instant Curated Mood Row */}
       {activeMood && (
-        <div className="rounded-2xl border border-white/10 bg-[#111116]/90 p-5 sm:p-6">
+        <div className="border-y border-white/10 py-6">
           {loading ? (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="aspect-[2/3] animate-pulse rounded-lg bg-[#1A1A22]" />
+                <div key={i} className="aspect-[2/3] animate-pulse rounded-lg bg-[#16161C]" />
               ))}
             </div>
           ) : (

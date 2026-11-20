@@ -5,11 +5,11 @@ import {
   BookmarkCheck,
   ChevronLeft,
   ChevronRight,
-  Dice5,
   LogOut,
   Play,
   Search,
   ShieldCheck,
+  Shuffle,
   User,
   X,
 } from 'lucide-react';
@@ -559,9 +559,9 @@ export function CatalogPreviewPage() {
               type="button"
               onClick={() => setCmdOpen(true)}
               aria-label={t('cmdPlaceholder')}
-              className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/[0.04] px-3 py-1.5 text-xs text-[#C9C3B8] transition-colors hover:border-white/35 hover:bg-white/10 hover:text-white"
+              className="group inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/[0.04] px-3 py-1.5 text-xs text-[#C9C3B8] transition-colors hover:border-white/35 hover:bg-white/10 hover:text-white"
             >
-              <Search className="h-3.5 w-3.5 text-[#E50914]" aria-hidden="true" />
+              <Search className="h-3.5 w-3.5 text-[#8C877E] transition-colors group-hover:text-white" aria-hidden="true" />
               <span className="hidden xl:inline">{t('searchPlaceholder').slice(0, 18)}...</span>
               <kbd className="hidden rounded border border-white/15 bg-black/50 px-1.5 py-0.5 font-mono-ledger text-[10px] text-[#8C877E] sm:inline">
                 Ctrl K
@@ -573,9 +573,9 @@ export function CatalogPreviewPage() {
               onClick={() => handleOpenRoulette('any')}
               aria-label={t('rouletteTitle')}
               title={t('rouletteCta')}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#E50914]/45 bg-[#E50914]/15 px-3 text-xs font-medium text-white transition-colors hover:bg-[#E50914]"
+              className="group inline-flex h-8 items-center gap-1.5 rounded-full border border-white/14 bg-white/[0.04] px-3 text-xs font-medium text-[#D8D3C8] transition-colors hover:border-white/40 hover:bg-white/10 hover:text-white"
             >
-              <Dice5 className="h-3.5 w-3.5" aria-hidden="true" />
+              <Shuffle className="h-3.5 w-3.5 text-[#8C877E] transition-colors group-hover:text-white" aria-hidden="true" />
               <span className="hidden md:inline">Roulette</span>
             </button>
 

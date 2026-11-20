@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bookmark,
   BookmarkCheck,
-  Dice5,
   Info,
   Play,
   RefreshCw,
+  Shuffle,
   Star,
   Volume2,
   VolumeX,
@@ -134,9 +134,9 @@ export function TitoRouletteModal({
       <div className="relative z-10 w-full max-w-3xl overflow-hidden rounded-2xl border border-white/15 bg-[#121217] shadow-[0_32px_100px_rgba(0,0,0,0.92)]">
         {/* Top Controls Header */}
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#E50914] text-white">
-              <Dice5 className="h-4 w-4" aria-hidden="true" />
+          <div className="flex items-center gap-3">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] text-[#F3EFE6]">
+              <Shuffle className="h-3.5 w-3.5" aria-hidden="true" />
             </span>
             <div>
               <h2 className="font-editorial text-xl font-bold text-white">{t('rouletteTitle')}</h2>
@@ -186,7 +186,7 @@ export function TitoRouletteModal({
             type="button"
             disabled={spinning}
             onClick={() => runSpin(mood, maxRuntime)}
-            className="ml-auto inline-flex items-center gap-2 rounded-full bg-[#E50914] px-5 py-1.5 text-xs font-semibold text-white transition-transform hover:scale-[1.02] hover:bg-[#F40612] disabled:opacity-50"
+            className="ml-auto inline-flex items-center gap-2 rounded-full bg-[#F3EFE6] px-5 py-1.5 text-xs font-semibold text-[#0B0B0D] transition-colors hover:bg-white disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${spinning ? 'animate-spin' : ''}`} aria-hidden="true" />
             <span>{spinning ? t('rouletteSpinning') : t('rouletteSpinAgain')}</span>

@@ -90,7 +90,7 @@ export function CinemaTimeline({ onOpenDetail, onPlayTrailer, onOpenPerson, onEx
               onClick={() => setSelectedDecade(era.decade)}
               className={`group flex shrink-0 flex-col items-start rounded-xl border px-4 py-2.5 text-left transition-all ${
                 isSelected
-                  ? 'border-[#E0A43B] bg-[#E0A43B]/15 text-white shadow-[0_0_24px_rgba(224,164,59,0.18)]'
+                  ? 'border-[#F3EFE6]/55 bg-white/[0.08] text-white'
                   : 'border-white/10 bg-white/[0.02] text-[#A59F95] hover:border-white/30 hover:text-white'
               }`}
             >

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Compass,
-  Dice5,
   Film,
   Flame,
   Globe,
@@ -9,7 +8,7 @@ import {
   Play,
   Search,
   ShieldCheck,
-  Star,
+  Shuffle,
   X,
 } from 'lucide-react';
 import { api } from '../api/client';
@@ -54,7 +53,7 @@ export function CommandPalette({
       {
         id: 'act-roulette',
         type: 'action',
-        icon: Dice5,
+        icon: Shuffle,
         label: t('rouletteCta'),
         hint: 'Random',
         run: () => {
@@ -205,7 +204,7 @@ export function CommandPalette({
       <div className="relative z-10 w-full max-w-2xl overflow-hidden rounded-2xl border border-white/16 bg-[#13131A] shadow-[0_32px_100px_rgba(0,0,0,0.92)]">
         {/* Search Input */}
         <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3.5">
-          <Search className="h-4 w-4 shrink-0 text-[#E50914]" aria-hidden="true" />
+          <Search className="h-4 w-4 shrink-0 text-[#A59F95]" aria-hidden="true" />
           <input
             ref={inputRef}
             type="text"
@@ -316,7 +315,10 @@ export function CommandPalette({
                           }`}
                         >
                           <span className="flex items-center gap-2.5">
-                            <Icon className="h-4 w-4 text-[#E50914]" aria-hidden="true" />
+                            <Icon
+                              className={`h-4 w-4 transition-colors ${focused ? 'text-[#F3EFE6]' : 'text-[#8C877E]'}`}
+                              aria-hidden="true"
+                            />
                             <span className="font-medium">{act.label}</span>
                           </span>
                           <span className="font-mono-ledger text-[10px] text-[#746F67]">{act.hint}</span>
@@ -357,7 +359,7 @@ export function CommandPalette({
         {/* Footer Hints */}
         <div className="flex items-center justify-between border-t border-white/8 bg-[#0E0E13] px-4 py-2 font-mono-ledger text-[10px] text-[#746F67]">
           <span className="flex items-center gap-2">
-            <Film className="h-3 w-3 text-[#E50914]" aria-hidden="true" />
+            <Film className="h-3 w-3 text-[#8C877E]" aria-hidden="true" />
             <span>Titofilm Spotlight</span>
           </span>
           <span className="flex items-center gap-3">
