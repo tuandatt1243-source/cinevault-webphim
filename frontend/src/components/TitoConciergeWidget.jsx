@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  ChevronDown,
-  ChevronUp,
-  Database,
   Info,
   MessageSquare,
   Play,
@@ -37,14 +34,50 @@ function generateSessionId() {
 }
 
 /**
- * Tito Concierge — NoSQL-Native Cinema Curator backed by MongoDB RAG + Embedded `chat_sessions` (7-day TTL)
- * and optional Gemini 2.5 Flash grounded generation with automatic zero-downtime local fallback.
- * Aesthetic: minimalist cinema obsidian glass — zero purple/neon AI slop.
+ * Renders lightweight inline **bold** and clean bullet lines without raw markdown syntax.
+ */
+function FormattedReply({ text }) {
+  const lines = String(text || '').split('\n');
+  return (
+    <div className="space-y-1.5">
+      {lines.map((rawLine, lineIdx) => {
+        const trimmed = rawLine.trim();
+        if (!trimmed) return null;
+        const isBullet = /^[-*•]\s+/.test(trimmed);
+        const content = isBullet ? trimmed.replace(/^[-*•]\s+/, '') : trimmed;
+        const parts = content.split(/(\*\*[^*]+\*\*)/g);
+        const nodes = parts.map((part, pIdx) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+            return (
+              <strong key={pIdx} className="font-semibold text-white">
+                {part.slice(2, -2)}
+              </strong>
+            );
+          }
+          return <span key={pIdx}>{part}</span>;
+        });
+
+        if (isBullet) {
+          return (
+            <div key={lineIdx} className="flex items-start gap-2 pl-0.5">
+              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[#E0A43B]" aria-hidden="true" />
+              <p className="flex-1">{nodes}</p>
+            </div>
+          );
+        }
+        return <p key={lineIdx}>{nodes}</p>;
+      })}
+    </div>
+  );
+}
+
+/**
+ * Tito Concierge — Personal Film Curator widget for Titofilm.
+ * Grounded strictly in Titofilm's real movie catalog, with persisted session history.
  */
 export function TitoConciergeWidget({ onOpenDetail, onPlayTrailer, hidden = false }) {
   const { t, lang, formatRuntime } = useLanguage();
   const [open, setOpen] = useState(false);
-  const [status, setStatus] = useState({ gemini_enabled: false, mode: 'mongodb-rag', model: '' });
   const [sessionId, setSessionId] = useState(() => {
     const saved = localStorage.getItem(SESSION_STORAGE_KEY);
     if (saved) return saved;
@@ -55,20 +88,10 @@ export function TitoConciergeWidget({ onOpenDetail, onPlayTrailer, hidden = fals
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
-  const [expandedQueryIdx, setExpandedQueryIdx] = useState({});
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
 
-  useEffect(() => {
-    api
-      .assistantStatus()
-      .then((res) => {
-        if (res) setStatus(res);
-      })
-      .catch(() => {});
-  }, []);
-
-  // Load persisted embedded conversation from MongoDB `chat_sessions` when opened
+  // Restore persisted conversation history when opened
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -131,10 +154,6 @@ export function TitoConciergeWidget({ onOpenDetail, onPlayTrailer, hidden = fals
           role: 'assistant',
           content: res.reply,
           movies: res.movies || [],
-          engine: res.engine,
-          retrieval_ms: res.retrieval_ms,
-          mongo_filter: res.mongo_filter,
-          matched_count: res.matched_count,
           follow_ups: res.follow_up_suggestions || [],
           created_at: new Date().toISOString(),
         },
@@ -167,7 +186,6 @@ export function TitoConciergeWidget({ onOpenDetail, onPlayTrailer, hidden = fals
     setSessionId(fresh);
     localStorage.setItem(SESSION_STORAGE_KEY, fresh);
     setMessages([]);
-    setExpandedQueryIdx({});
   };
 
   if (hidden && !open) return null;
@@ -176,7 +194,7 @@ export function TitoConciergeWidget({ onOpenDetail, onPlayTrailer, hidden = fals
 
   return (
     <>
-      {/* Minimalist Floating Cinema Concierge Trigger (Zero AI Neon Slop) */}
+      {/* Minimalist Floating Cinema Concierge Trigger */}
       {!open && (
         <button
           type="button"
@@ -209,8 +227,8 @@ export function TitoConciergeWidget({ onOpenDetail, onPlayTrailer, hidden = fals
                 <h2 className="font-editorial text-base font-bold leading-tight text-white">
                   Tito Concierge
                 </h2>
-                <p className="font-mono-ledger text-[10px] text-[#8C877E]">
-                  {status.gemini_enabled ? 'Gemini + MongoDB RAG' : 'MongoDB RAG · Live Catalog'}
+                <p className="text-[11px] text-[#8C877E]">
+                  {lang === 'en' ? 'Personal Film Curator' : 'Trợ lý điện ảnh Titofilm'}
                 </p>
               </div>
             </div>
@@ -248,8 +266,8 @@ export function TitoConciergeWidget({ onOpenDetail, onPlayTrailer, hidden = fals
                   </p>
                   <p className="text-xs leading-relaxed text-[#8C877E]">
                     {lang === 'en'
-                      ? 'Describe a mood, runtime, decade, director, or a film you loved — I search Titofilm’s real catalog directly.'
-                      : 'Mô tả tự nhiên theo cảm xúc, thời lượng, thập kỷ, đạo diễn hoặc tên một bộ phim bạn thích — hệ thống truy xuất trực tiếp từ kho 1.055 phim thật.'}
+                      ? 'Describe a mood, runtime, decade, director, or a film you loved to receive tailored picks.'
+                      : 'Mô tả tự nhiên theo cảm xúc, thời lượng, thập kỷ, đạo diễn hoặc tên một bộ phim bạn yêu thích.'}
                   </p>
                 </div>
 
@@ -269,20 +287,19 @@ export function TitoConciergeWidget({ onOpenDetail, onPlayTrailer, hidden = fals
             ) : (
               messages.map((msg, idx) => {
                 const isUser = msg.role === 'user';
-                const queryOpen = Boolean(expandedQueryIdx[idx]);
                 return (
                   <div key={idx} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
                     <div
-                      className={`max-w-[90%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed ${
+                      className={`max-w-[92%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed ${
                         isUser
                           ? 'bg-[#F3EFE6] font-medium text-[#0B0B0D]'
                           : 'border border-white/10 bg-[#181820] text-[#E2DDD4]'
                       }`}
                     >
-                      <p className="whitespace-pre-line">{msg.content}</p>
+                      {isUser ? <p>{msg.content}</p> : <FormattedReply text={msg.content} />}
                     </div>
 
-                    {/* Grounded Real Movie Cards from MongoDB */}
+                    {/* Curated Real Movie Cards */}
                     {!isUser && msg.movies?.length > 0 && (
                       <div className="mt-2.5 w-full space-y-2">
                         {msg.movies.map((m) => (
@@ -356,38 +373,6 @@ export function TitoConciergeWidget({ onOpenDetail, onPlayTrailer, hidden = fals
                       </div>
                     )}
 
-                    {/* Collapsible MongoDB Query Telemetry (great for NoSQL demo, unobtrusive for viewers) */}
-                    {!isUser && msg.retrieval_ms !== undefined && msg.retrieval_ms !== null && (
-                      <div className="mt-2 w-full">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedQueryIdx((prev) => ({ ...prev, [idx]: !prev[idx] }))
-                          }
-                          className="inline-flex items-center gap-1.5 font-mono-ledger text-[10px] text-[#746F67] transition-colors hover:text-[#C9C3B8]"
-                        >
-                          <Database className="h-2.5 w-2.5" aria-hidden="true" />
-                          <span>
-                            {msg.engine === 'gemini-rag' ? 'Gemini + MongoDB' : 'MongoDB'} ·{' '}
-                            {msg.retrieval_ms} ms
-                            {msg.matched_count ? ` · ${msg.matched_count} docs` : ''}
-                          </span>
-                          {msg.mongo_filter &&
-                            (queryOpen ? (
-                              <ChevronUp className="h-3 w-3" aria-hidden="true" />
-                            ) : (
-                              <ChevronDown className="h-3 w-3" aria-hidden="true" />
-                            ))}
-                        </button>
-
-                        {queryOpen && msg.mongo_filter && (
-                          <pre className="mt-1.5 max-h-32 overflow-auto rounded-lg border border-white/10 bg-black/50 p-2 font-mono-ledger text-[10px] leading-relaxed text-[#A59F95]">
-                            {JSON.stringify(msg.mongo_filter, null, 2)}
-                          </pre>
-                        )}
-                      </div>
-                    )}
-
                     {/* Follow-up Suggestions on latest assistant turn */}
                     {!isUser && idx === messages.length - 1 && msg.follow_ups?.length > 0 && !sending && (
                       <div className="mt-2.5 flex flex-wrap gap-1.5">
@@ -411,7 +396,7 @@ export function TitoConciergeWidget({ onOpenDetail, onPlayTrailer, hidden = fals
             {sending && (
               <div className="flex items-center gap-2 text-xs text-[#8C877E]">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-[#E50914]" />
-                <span>{lang === 'en' ? 'Searching Titofilm catalog...' : 'Đang truy vấn kho phim Titofilm...'}</span>
+                <span>{lang === 'en' ? 'Curating recommendations...' : 'Đang tìm phim phù hợp...'}</span>
               </div>
             )}
           </div>
