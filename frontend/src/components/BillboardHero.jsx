@@ -95,6 +95,7 @@ export function BillboardHero({
         >
           <YouTubeBackdropPlayer
             videoId={videoId}
+            backdropUrl={movie.backdrop_url}
             posterFallback={fallbackPoster}
             title={movie.title}
             muted={muted}

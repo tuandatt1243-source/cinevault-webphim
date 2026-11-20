@@ -124,6 +124,7 @@ export function MovieDetailModal({
         <div className="relative aspect-video max-h-[420px] w-full overflow-hidden bg-black">
           <YouTubeBackdropPlayer
             videoId={videoId}
+            backdropUrl={movie.backdrop_url}
             posterFallback={fallbackPoster}
             title={movie.title}
             muted={muted}

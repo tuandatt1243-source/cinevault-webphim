@@ -26,6 +26,7 @@ from app.db.schemas import ensure_collections_and_indexes
 DATASET_PATH = BACKEND_DIR / "data" / "imdb_top_1000.csv"
 EXTRA_DATASET_PATH = BACKEND_DIR / "data" / "extra_imdb_movies.json"
 EXPANDED_TMDB_PATH = BACKEND_DIR / "data" / "tmdb_expanded_movies.json"
+HD_TRAILERS_PATH = BACKEND_DIR / "data" / "hd_trailers.json"
 POSTER_OVERRIDES_PATH = BACKEND_DIR / "data" / "poster_overrides.json"
 OVERVIEW_VI_PATH = BACKEND_DIR / "data" / "overview_vi.json"
 
@@ -131,15 +132,30 @@ CURATED_TRAILERS_BY_TITLE: dict[str, str] = {
     "festen": "vKe8bf6769c",
 }
 
+# Verified 4K/1080p 16:9 widescreen studio trailers only (zero 4:3 SD pillarboxes)
 FALLBACK_TRAILER_IDS: list[str] = [
-    "PLl99DlL6b4", "UaVTIH8mujA", "EXeTwQWrcwY", "YoHD9XEInc0", "zSWdZVtXT7E",
-    "5xH0HfJHsaY", "ByXuk9QqQkk", "7d_jQycdQGo", "s7EdQ4FqbhY", "RLtaA9fFNXU",
-    "GLeDdzGUTq0", "PaZVjZEFkRs", "xCZ9TguVOIA", "L0CRn573s7k", "BkL9l7qovsE",
+    "Way9Dexny3w", "uYPbbksJxIg", "zSWdZVtXT7E", "mqqft2x_Aa4", "d9MyW72ELq0",
+    "cqGjhVJWtEg", "giXco2jaZ_4", "8g18jFHCLXk", "73_1biulkYk", "gCcx85zbxz4",
+    "hEJnMQG9ev8", "YoHD9XEInc0", "EXeTwQWrcwY", "zAGVQLHvwOY", "TcMBFSGVi1c",
+    "LEjhY15eCx0", "67vbA5ZJdKQ", "wxN1T1uxQ2g", "bKGxHflevuk", "69ffwl-8pCU",
 ]
 
 
-def resolve_trailer_url(title: str, idx: int) -> str:
-    vid = CURATED_TRAILERS_BY_TITLE.get(title.strip().lower())
+def _load_hd_trailers_by_slug() -> dict[str, str]:
+    if not HD_TRAILERS_PATH.exists():
+        return {}
+    try:
+        import json as _json
+        return dict(_json.loads(HD_TRAILERS_PATH.read_text(encoding="utf-8")).get("trailers_by_slug") or {})
+    except Exception:
+        return {}
+
+
+HD_TRAILERS_BY_SLUG: dict[str, str] = _load_hd_trailers_by_slug()
+
+
+def resolve_trailer_url(title: str, idx: int, slug: str | None = None) -> str:
+    vid = HD_TRAILERS_BY_SLUG.get(slug or "") or CURATED_TRAILERS_BY_TITLE.get(title.strip().lower())
     if not vid:
         vid = FALLBACK_TRAILER_IDS[idx % len(FALLBACK_TRAILER_IDS)]
     return f"https://www.youtube.com/watch?v={vid}"
@@ -409,7 +425,7 @@ def load_real_movies(limit: int) -> list[dict[str, Any]]:
                     "certificate": (row.get("Certificate") or "").strip() or None,
                     "poster_url": poster,
                     "backdrop_url": poster,
-                    "trailer_url": resolve_trailer_url(title, idx),
+                    "trailer_url": resolve_trailer_url(title, idx, slug),
                     "genres": genres,
                     "cast": cast,
                     "directors": directors,
@@ -462,7 +478,7 @@ def load_real_movies(limit: int) -> list[dict[str, Any]]:
                     "certificate": "PG-13",
                     "poster_url": poster,
                     "backdrop_url": poster,
-                    "trailer_url": resolve_trailer_url(title, idx_num),
+                    "trailer_url": resolve_trailer_url(title, idx_num, slug),
                     "genres": genres,
                     "cast": cast,
                     "directors": directors,
@@ -522,7 +538,7 @@ def load_real_movies(limit: int) -> list[dict[str, Any]]:
                     "certificate": "PG-13",
                     "poster_url": poster,
                     "backdrop_url": backdrop,
-                    "trailer_url": resolve_trailer_url(title, idx_num),
+                    "trailer_url": resolve_trailer_url(title, idx_num, slug),
                     "genres": genres,
                     "cast": cast,
                     "directors": directors,

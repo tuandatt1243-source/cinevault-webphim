@@ -84,7 +84,7 @@ const ERA_CURATION = {
     },
   },
   2020: {
-    stillId: 'GLeDdzGUTq0',
+    stillId: 'Way9Dexny3w',
     tagline: {
       vi: 'Điện ảnh Đương đại & Tiếng nói Mới',
       en: 'Contemporary Voices & New Horizons',

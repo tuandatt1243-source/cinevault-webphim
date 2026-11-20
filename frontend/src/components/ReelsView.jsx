@@ -147,6 +147,7 @@ export function ReelsView({
       {/* Fullscreen HD Trailer Player */}
       <YouTubeBackdropPlayer
         videoId={videoId}
+        backdropUrl={currentMovie.backdrop_url}
         posterFallback={`${API_BASE}/movies/${currentMovie.id}/poster`}
         title={currentMovie.title}
         muted={muted}

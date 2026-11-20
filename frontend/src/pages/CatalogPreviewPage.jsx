@@ -52,6 +52,7 @@ export function CatalogPreviewPage() {
 
   // Netflix Home rows state
   const [billboardMovies, setBillboardMovies] = useState([]);
+  const [reelsSeedMovies, setReelsSeedMovies] = useState([]);
   const [billboardIdx, setBillboardIdx] = useState(0);
   const [top10Movies, setTop10Movies] = useState([]);
   const [genreRows, setGenreRows] = useState({});
@@ -138,19 +139,21 @@ export function CatalogPreviewPage() {
     api.getGenres().then(setGenres).catch(() => {});
   }, []);
 
-  // Load Netflix Home Billboard + Top 10 + Genre Rows in parallel
+  // Load Featured 4K Billboard + Reels + Top 10 + Genre Rows in parallel
   useEffect(() => {
     let cancelled = false;
     setHomeLoading(true);
     Promise.all([
+      api.getFeatured('billboard', 8),
+      api.getFeatured('reels', 24),
       api.listMovies({ sort: 'views', limit: 10 }),
       ...HOME_GENRE_ROWS.map((g) => api.listMovies({ genre: g, sort: 'views', limit: 15 })),
     ])
-      .then(([topViewsRes, ...genreResults]) => {
+      .then(([featuredBillboard, featuredReels, topViewsRes, ...genreResults]) => {
         if (cancelled) return;
         const topItems = topViewsRes.items || [];
-        const heroPool = topItems.slice(1, 7).length >= 5 ? topItems.slice(1, 7) : topItems.slice(0, 6);
-        setBillboardMovies(heroPool);
+        setBillboardMovies(featuredBillboard?.length ? featuredBillboard : topItems.slice(0, 6));
+        setReelsSeedMovies(featuredReels?.length ? featuredReels : topItems);
         setTop10Movies(topItems.slice(0, 10));
         setMeta((prev) => ({ ...prev, total: topViewsRes.meta?.total || prev.total }));
 
@@ -661,9 +664,7 @@ export function CatalogPreviewPage() {
       {/* === MODE 0: TITOFILM REELS (FULLSCREEN VERTICAL HD TRAILER STREAM) === */}
       {view === 'reels' && (
         <ReelsView
-          initialMovies={[...billboardMovies, ...top10Movies].filter(
-            (m, i, arr) => arr.findIndex((x) => x.id === m.id) === i
-          )}
+          initialMovies={reelsSeedMovies.length ? reelsSeedMovies : billboardMovies}
           user={user}
           pausedExternal={modalBlockingBackground}
           inWatchlist={inWatchlist}

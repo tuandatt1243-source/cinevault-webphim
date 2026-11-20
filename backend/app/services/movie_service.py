@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import math
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -18,6 +20,7 @@ from app.services.poster_service import get_cached_poster_path
 from app.services.serializers import serialize_movie
 
 logger = logging.getLogger("cinevault.movies")
+HD_TRAILERS_PATH = Path(__file__).resolve().parents[2] / "data" / "hd_trailers.json"
 
 ALLOWED_SORTS: dict[str, list[tuple[str, int]]] = {
     "newest": [("release_year", DESCENDING), ("avg_rating", DESCENDING)],
@@ -255,6 +258,50 @@ async def list_genres_facets(db: AsyncDatabase) -> list[dict[str, Any]]:
     ]
     cursor = await db.movies.aggregate(pipeline)
     return await cursor.to_list(length=100)
+
+
+async def list_featured_hd_movies(
+    db: AsyncDatabase,
+    *,
+    kind: str = "billboard",
+    limit: int = 8,
+) -> list[dict[str, Any]]:
+    """Return verified 4K/1080p widescreen studio trailer showcases for Billboard Hero & Reels HD."""
+    ordered_slugs: list[str] = []
+    if HD_TRAILERS_PATH.exists():
+        try:
+            cfg = json.loads(HD_TRAILERS_PATH.read_text(encoding="utf-8"))
+            ordered_slugs = list(cfg.get("reels_slugs" if kind == "reels" else "billboard_slugs") or [])
+        except Exception:
+            ordered_slugs = []
+
+    docs_by_slug: dict[str, dict[str, Any]] = {}
+    if ordered_slugs:
+        found = await db.movies.find(
+            {"is_deleted": False, "slug": {"$in": ordered_slugs}}
+        ).to_list(length=len(ordered_slugs))
+        docs_by_slug = {d["slug"]: d for d in found}
+
+    ordered_docs = [docs_by_slug[s] for s in ordered_slugs if s in docs_by_slug][:limit]
+
+    # Top up gracefully with newest high-view movies if DB is smaller (e.g. unit tests)
+    if len(ordered_docs) < limit:
+        existing_ids = [d["_id"] for d in ordered_docs]
+        extra = (
+            await db.movies.find(
+                {
+                    "is_deleted": False,
+                    "_id": {"$nin": existing_ids},
+                    "trailer_url": {"$type": "string", "$ne": ""},
+                }
+            )
+            .sort([("release_year", DESCENDING), ("views_count", DESCENDING), ("avg_rating", DESCENDING)])
+            .limit(limit - len(ordered_docs))
+            .to_list(length=limit - len(ordered_docs))
+        )
+        ordered_docs.extend(extra)
+
+    return [serialize_movie(d) for d in ordered_docs]
 
 
 MOOD_FILTERS: dict[str, dict[str, Any]] = {

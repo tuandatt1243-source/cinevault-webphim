@@ -41,13 +41,14 @@ function forceHighestQuality(player) {
 }
 
 /**
- * Full-bleed Netflix-style HD 16:9 YouTube Trailer background player.
- * Uses YouTube IFrame API to enforce highest available resolution (hd1080/highres),
- * allows smooth Mute/Unmute & Play/Pause without reloading, and keeps a 1280x720
- * maxresdefault.jpg backdrop visible until playback is cleanly active.
+ * Full-bleed Netflix-style 4K/1080p 16:9 YouTube Trailer background player.
+ * - Uses true cover-ratio widescreen framing (zero black sidebars on ultrawide screens).
+ * - Delays reveal by 850ms after PLAYING so YouTube's transient startup/pause HUD never flashes.
+ * - Immediately reveals the crisp 1280px still underneath whenever paused or buffering.
  */
 export function YouTubeBackdropPlayer({
   videoId,
+  backdropUrl,
   posterFallback,
   title,
   muted = true,
@@ -58,20 +59,32 @@ export function YouTubeBackdropPlayer({
   const playerRef = useRef(null);
   const mutedRef = useRef(muted);
   const pausedRef = useRef(paused);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const revealTimerRef = useRef(null);
+  const [videoVisible, setVideoVisible] = useState(false);
   const [thumbUrl, setThumbUrl] = useState('');
 
   mutedRef.current = muted;
   pausedRef.current = paused;
 
+  const clearRevealTimer = () => {
+    if (revealTimerRef.current) {
+      window.clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = null;
+    }
+  };
+
   useEffect(() => {
-    setIsPlaying(false);
-    if (videoId) {
+    clearRevealTimer();
+    setVideoVisible(false);
+    // Prefer widescreen TMDB 1280px still or 1280x720 YouTube maxresdefault
+    if (backdropUrl && backdropUrl.includes('/w1280/')) {
+      setThumbUrl(backdropUrl);
+    } else if (videoId) {
       setThumbUrl(`https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`);
     } else {
       setThumbUrl(posterFallback || '');
     }
-  }, [videoId, posterFallback]);
+  }, [videoId, backdropUrl, posterFallback]);
 
   useEffect(() => {
     if (!videoId || !hostRef.current) return;
@@ -128,16 +141,33 @@ export function YouTubeBackdropPlayer({
               if (destroyed) return;
               if (event.data === YT.PlayerState.PLAYING) {
                 forceHighestQuality(event.target);
-                setIsPlaying(true);
-              } else if (event.data === YT.PlayerState.BUFFERING) {
-                forceHighestQuality(event.target);
+                clearRevealTimer();
+                // Wait 850ms so YouTube's transient title & center play/pause HUD fades completely
+                revealTimerRef.current = window.setTimeout(() => {
+                  if (!destroyed && !pausedRef.current) {
+                    setVideoVisible(true);
+                  }
+                }, 850);
+              } else if (
+                event.data === YT.PlayerState.PAUSED ||
+                event.data === YT.PlayerState.BUFFERING
+              ) {
+                clearRevealTimer();
+                if (event.data === YT.PlayerState.PAUSED) {
+                  setVideoVisible(false);
+                } else {
+                  forceHighestQuality(event.target);
+                }
               } else if (event.data === YT.PlayerState.ENDED) {
+                clearRevealTimer();
+                setVideoVisible(false);
                 event.target.seekTo(startSeconds, true);
                 event.target.playVideo();
               }
             },
             onError: () => {
-              if (!destroyed) setIsPlaying(false);
+              clearRevealTimer();
+              if (!destroyed) setVideoVisible(false);
             },
           },
         });
@@ -146,6 +176,7 @@ export function YouTubeBackdropPlayer({
 
     return () => {
       destroyed = true;
+      clearRevealTimer();
       if (playerRef.current) {
         try {
           playerRef.current.destroy();
@@ -174,9 +205,13 @@ export function YouTubeBackdropPlayer({
     }
   }, [muted]);
 
-  // Smooth pause/resume when opening modals or user pauses
+  // Smooth pause/resume — immediately hides YouTube pause HUD when paused
   useEffect(() => {
     const p = playerRef.current;
+    if (paused) {
+      clearRevealTimer();
+      setVideoVisible(false);
+    }
     if (!p || typeof p.pauseVideo !== 'function') return;
     try {
       if (paused) {
@@ -191,7 +226,9 @@ export function YouTubeBackdropPlayer({
   }, [paused]);
 
   const handleThumbError = () => {
-    if (videoId && thumbUrl.includes('maxresdefault.jpg')) {
+    if (videoId && !thumbUrl.includes('i.ytimg.com')) {
+      setThumbUrl(`https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`);
+    } else if (videoId && thumbUrl.includes('maxresdefault.jpg')) {
       setThumbUrl(`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`);
     } else if (posterFallback && thumbUrl !== posterFallback) {
       setThumbUrl(posterFallback);
@@ -200,7 +237,7 @@ export function YouTubeBackdropPlayer({
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden bg-[#0E0E12]">
-      {/* High-res 16:9 YouTube thumbnail underneath (instant render, zero black flash) */}
+      {/* High-res 16:9 theatrical still underneath (instant render, clean pause state) */}
       {thumbUrl && (
         <img
           src={thumbUrl}
@@ -210,16 +247,16 @@ export function YouTubeBackdropPlayer({
         />
       )}
 
-      {/* Scaled full-bleed YouTube HD iframe layer (crops YouTube chrome & black bars) */}
+      {/* True edge-to-edge 16:9 cover layer (eliminates sidebars & YouTube chrome) */}
       {videoId && (
         <div
-          className={`absolute inset-0 transition-opacity duration-1000 ${
-            isPlaying && !paused ? 'opacity-100' : 'opacity-0'
+          className={`absolute inset-0 transition-opacity ${
+            videoVisible && !paused ? 'opacity-100 duration-1000' : 'opacity-0 duration-200'
           }`}
         >
           <div
             ref={hostRef}
-            className="h-full w-full scale-[1.24] [&_iframe]:h-full [&_iframe]:w-full"
+            className="absolute left-1/2 top-1/2 aspect-video min-h-full min-w-full -translate-x-1/2 -translate-y-1/2 scale-[1.22] [&_iframe]:h-full [&_iframe]:w-full"
           />
         </div>
       )}

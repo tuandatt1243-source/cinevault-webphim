@@ -89,6 +89,8 @@ export const api = {
 
   // Movies
   getGenres: () => request('/movies/genres'),
+  getFeatured: (kind = 'billboard', limit = 8) =>
+    request('/movies/featured', { params: { kind, limit } }),
   getDecades: () => request('/movies/decades'),
   getRoulette: (params) => request('/movies/roulette', { params }),
   getPersonSpotlight: (name, role = 'director') =>

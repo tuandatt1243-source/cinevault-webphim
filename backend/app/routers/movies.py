@@ -28,6 +28,15 @@ async def get_genres(db: AsyncDatabase = Depends(get_db)) -> list[dict[str, Any]
     return await movie_service.list_genres_facets(db)
 
 
+@router.get("/featured", response_model=list[MovieOut])
+async def get_featured_movies(
+    kind: str = Query(default="billboard", pattern="^(billboard|reels)$"),
+    limit: int = Query(default=8, ge=1, le=30),
+    db: AsyncDatabase = Depends(get_db),
+) -> list[dict[str, Any]]:
+    return await movie_service.list_featured_hd_movies(db, kind=kind, limit=limit)
+
+
 @router.get("/decades", response_model=list[DecadeFacet])
 async def get_decades(db: AsyncDatabase = Depends(get_db)) -> list[dict[str, Any]]:
     return await movie_service.list_decades_showcase(db)
