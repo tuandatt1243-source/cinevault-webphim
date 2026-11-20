@@ -25,6 +25,7 @@ from app.db.schemas import ensure_collections_and_indexes
 
 DATASET_PATH = BACKEND_DIR / "data" / "imdb_top_1000.csv"
 EXTRA_DATASET_PATH = BACKEND_DIR / "data" / "extra_imdb_movies.json"
+EXPANDED_TMDB_PATH = BACKEND_DIR / "data" / "tmdb_expanded_movies.json"
 POSTER_OVERRIDES_PATH = BACKEND_DIR / "data" / "poster_overrides.json"
 OVERVIEW_VI_PATH = BACKEND_DIR / "data" / "overview_vi.json"
 
@@ -68,6 +69,24 @@ CURATED_TRAILERS_BY_TITLE: dict[str, str] = {
     "the intouchables": "34WIbmXkewU",
     "the prestige": "RLtaA9fFNXU",
     "the departed": "iojhqm0JTW4",
+    "dune": "8g18jFHCLXk",
+    "dune: part two": "Way9Dexny3w",
+    "oppenheimer": "uYPbbksJxIg",
+    "spider-man: no way home": "JfVOs4VSpmA",
+    "spider-man: across the spider-verse": "cqGjhVJWtEg",
+    "the batman": "mqqft2x_Aa4",
+    "top gun: maverick": "giXco2jaZ_4",
+    "avatar: the way of water": "d9MyW72ELq0",
+    "everything everywhere all at once": "wxN1T1uxQ2g",
+    "deadpool & wolverine": "73_1biulkYk",
+    "inside out 2": "LEjhY15eCx0",
+    "barbie": "pBk4NYhWNMM",
+    "the wild robot": "67vbA5ZJdKQ",
+    "sinners": "bKGxHflevuk",
+    "anora": "p1QgNF6J1h0",
+    "mickey 17": "osYpGSz_0i4",
+    "superman": "uhUht6vAsMY",
+    "f1": "69ffwl-8pCU",
     "the pianist": "BFwGqLa_oAo",
     "gladiator": "P5ieIbInFpg",
     "american history x": "XfQYHqsiN5g",
@@ -291,6 +310,33 @@ def parse_float_or_none(raw: str) -> float | None:
         return None
 
 
+LANG_CODE_MAP = {
+    "en": "English",
+    "ko": "Korean",
+    "ja": "Japanese",
+    "fr": "French",
+    "es": "Spanish",
+    "zh": "Chinese",
+    "cn": "Chinese",
+    "de": "German",
+    "it": "Italian",
+    "hi": "Hindi",
+    "ru": "Russian",
+    "pt": "Portuguese",
+    "vi": "Vietnamese",
+    "th": "Thai",
+    "sv": "Swedish",
+    "da": "Danish",
+    "pl": "Polish",
+    "tr": "Turkish",
+}
+
+
+def normalize_language(raw: Any) -> str:
+    cleaned = str(raw or "English").strip()
+    return LANG_CODE_MAP.get(cleaned.lower(), cleaned[:64] or "English")
+
+
 def load_real_movies(limit: int) -> list[dict[str, Any]]:
     if not DATASET_PATH.exists():
         raise FileNotFoundError(f"Real movie dataset not found at {DATASET_PATH}")
@@ -427,6 +473,66 @@ def load_real_movies(limit: int) -> list[dict[str, Any]]:
                     "avg_rating": 0.0,
                     "rating_count": 0,
                     "views_count": 450 + (extra_idx * 17),
+                    "is_deleted": False,
+                    "deleted_at": None,
+                    "created_at": created_at,
+                    "updated_at": created_at,
+                }
+            )
+
+    if EXPANDED_TMDB_PATH.exists() and len(movies) < limit:
+        expanded_raw = json.loads(EXPANDED_TMDB_PATH.read_text(encoding="utf-8"))
+        # Load newest 2021-2026 hits first so even smaller SEED_MOVIE_LIMIT keeps full 2020s coverage
+        expanded_list = sorted(
+            expanded_raw.get("movies", []),
+            key=lambda x: (0 if x.get("source") == "tmdb-2021-2026" else 1, -int(x.get("year") or 0)),
+        )
+        for exp_idx, item in enumerate(expanded_list):
+            if len(movies) >= limit:
+                break
+            title = (item.get("title") or "").strip()
+            year = int(item.get("year") or 0)
+            if not title or not (1888 <= year <= 2100):
+                continue
+            slug = slugify(title, year)
+            if slug in used_slugs:
+                continue
+            used_slugs.add(slug)
+
+            genres = [g.strip() for g in (item.get("genres") or []) if isinstance(g, str) and g.strip()] or ["Drama"]
+            directors = [d.strip() for d in (item.get("directors") or []) if isinstance(d, str) and d.strip()][:5]
+            cast = [c.strip() for c in (item.get("cast") or []) if isinstance(c, str) and c.strip()][:6]
+            poster = poster_overrides.get(slug) or (item.get("poster_url") or None)
+            backdrop = item.get("backdrop_url") or poster
+            imdb_rating = item.get("imdb_rating")
+            votes = int(item.get("votes") or 1200)
+            idx_num = len(movies)
+            created_at = base_time + timedelta(hours=idx_num)
+
+            movies.append(
+                {
+                    "_id": deterministic_oid("movie", slug),
+                    "slug": slug,
+                    "title": title,
+                    "original_title": (item.get("original_title") or title).strip()[:250],
+                    "overview": (item.get("overview") or "").strip() or f"{title} ({year})",
+                    "overview_i18n": {"vi": overview_vi_map[slug]} if slug in overview_vi_map else {},
+                    "release_year": year,
+                    "runtime_minutes": parse_runtime(str(item.get("runtime") or 108)),
+                    "certificate": "PG-13",
+                    "poster_url": poster,
+                    "backdrop_url": backdrop,
+                    "trailer_url": resolve_trailer_url(title, idx_num),
+                    "genres": genres,
+                    "cast": cast,
+                    "directors": directors,
+                    "language": normalize_language(item.get("language")),
+                    "country": "International",
+                    "imdb_rating": float(imdb_rating) if imdb_rating is not None else 7.2,
+                    "meta_score": None,
+                    "avg_rating": 0.0,
+                    "rating_count": 0,
+                    "views_count": max(150, int(votes / 180) + (180 if year >= 2022 else 0)),
                     "is_deleted": False,
                     "deleted_at": None,
                     "created_at": created_at,

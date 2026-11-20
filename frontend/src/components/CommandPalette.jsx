@@ -77,7 +77,7 @@ export function CommandPalette({
         type: 'action',
         icon: Compass,
         label: t('catalogNav'),
-        hint: '1,055',
+        hint: 'All',
         run: () => {
           onNavigateView('browse');
           onClose();

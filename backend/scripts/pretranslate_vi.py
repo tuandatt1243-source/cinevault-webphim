@@ -16,7 +16,7 @@ from app.services.translate_service import translate_text_free
 OVERVIEW_VI_PATH = BACKEND_DIR / "data" / "overview_vi.json"
 
 
-async def pretranslate_top_movies(limit: int = 80, views_limit: int = 30, concurrency: int = 8) -> None:
+async def pretranslate_top_movies(limit: int = 80, views_limit: int = 40, recent_limit: int = 60, concurrency: int = 10) -> None:
     saved: dict[str, str] = {}
     if OVERVIEW_VI_PATH.exists():
         try:
@@ -40,9 +40,15 @@ async def pretranslate_top_movies(limit: int = 80, views_limit: int = 30, concur
             .limit(views_limit)
             .to_list(length=views_limit)
         )
+        newest_hits = (
+            await db.movies.find({"is_deleted": False, "release_year": {"$gte": 2021}}, projection)
+            .sort([("release_year", -1), ("views_count", -1)])
+            .limit(recent_limit)
+            .to_list(length=recent_limit)
+        )
         seen_ids = set()
         movies = []
-        for doc in [*top_viewed, *top_rated]:
+        for doc in [*top_viewed, *newest_hits, *top_rated]:
             if doc["_id"] not in seen_ids:
                 seen_ids.add(doc["_id"])
                 movies.append(doc)

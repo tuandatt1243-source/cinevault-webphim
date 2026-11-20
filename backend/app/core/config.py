@@ -38,9 +38,9 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     # Seed defaults
-    seed_movie_limit: int = 2000
+    seed_movie_limit: int = 2500
     seed_user_count: int = 220
-    seed_review_target: int = 8800
+    seed_review_target: int = 12000
 
     # Tito Concierge AI (Optional Gemini 3.5 Flash-Lite / Groq RAG over MongoDB)
     gemini_api_key: str = ""

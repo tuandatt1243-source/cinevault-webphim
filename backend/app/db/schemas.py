@@ -228,6 +228,7 @@ COLLECTION_INDEXES: dict[str, list[IndexModel]] = {
             ],
             weights={"title": 10, "original_title": 8, "cast": 5, "directors": 4, "overview": 1},
             default_language="english",
+            language_override="text_lang_override",
             name="txt_movies_search",
         ),
         IndexModel(
@@ -303,6 +304,11 @@ async def ensure_collections_and_indexes(db: AsyncDatabase) -> dict[str, list[st
 
         indexes = COLLECTION_INDEXES.get(col_name, [])
         if indexes:
+            if col_name == "movies":
+                existing_idx = await db[col_name].index_information()
+                txt_info = existing_idx.get("txt_movies_search")
+                if txt_info and txt_info.get("language_override") != "text_lang_override":
+                    await db[col_name].drop_index("txt_movies_search")
             names = await db[col_name].create_indexes(indexes)
             created_indexes[col_name] = names
 
