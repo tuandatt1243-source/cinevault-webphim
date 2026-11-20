@@ -13,7 +13,7 @@ from app.core.config import get_settings
 from app.core.database import mongo_manager
 from app.core.sanitize import assert_no_mongo_operators
 from app.db.schemas import ensure_collections_and_indexes
-from app.routers import admin, auth, health, interactions, movies, reviews, users
+from app.routers import admin, assistant, auth, health, interactions, movies, reviews, users
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
 logger = logging.getLogger("cinevault.main")
@@ -79,6 +79,7 @@ def create_app() -> FastAPI:
     app.include_router(movies.router, prefix=prefix)
     app.include_router(reviews.router, prefix=prefix)
     app.include_router(interactions.router, prefix=prefix)
+    app.include_router(assistant.router, prefix=prefix)
     app.include_router(admin.router, prefix=prefix)
 
     @app.get("/")

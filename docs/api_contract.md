@@ -87,6 +87,14 @@
 | `GET` | `/api/v1/admin/reviews` | **Admin** | Danh sách toàn bộ bình luận phục vụ kiểm duyệt (`q`, `rating`, `is_hidden`, `movie_id`). |
 | `PATCH` | `/api/v1/admin/reviews/{review_id}/moderate` | **Admin** | Ẩn/hiện bình luận (`{ "is_hidden": true \| false }`) và tự động cập nhật lại `avg_rating` của phim. |
 
+### 2.7 Tito Concierge — MongoDB RAG & Embedded Chat Sessions (`/api/v1/assistant`)
+| Method | Endpoint | Auth | Status | Mô tả |
+|---|---|---|---|---|
+| `GET` | `/api/v1/assistant/status` | Public | `200` | Trả về chế độ hiện tại (`gemini-rag` khi có `GEMINI_API_KEY` trong `.env`, hoặc `mongodb-rag` chạy cục bộ miễn phí không cần key). |
+| `POST` | `/api/v1/assistant/chat` | Public / Bearer | `200` | Nhận câu hỏi tự nhiên (6 ngôn ngữ) → trích xuất bộ lọc MongoDB → truy vấn phim thật từ `movies` + tạo câu trả lời grounded + lưu lịch sử bằng **Embedded Document (`$push` + `$slice: -40`)** vào collection `chat_sessions` (có **TTL Index 7 ngày**). |
+| `GET` | `/api/v1/assistant/sessions/{session_id}` | Public | `200` | Lấy lại toàn bộ lịch sử hội thoại và danh sách phim gợi ý của phiên. |
+| `DELETE` | `/api/v1/assistant/sessions/{session_id}` | Public | `200` | Xóa phiên hội thoại khỏi `chat_sessions`. |
+
 ---
 
 ## 3. Hợp Đồng Cắm Rút Cho TV2 (Neo4j) & TV3 (Redis)

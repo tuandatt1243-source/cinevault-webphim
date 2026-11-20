@@ -231,7 +231,7 @@ async def get_recent_sync_jobs_and_indexes(db: AsyncDatabase, limit: int = 12) -
     cursor = db.sync_jobs.find({}).sort("created_at", -1).limit(limit)
     jobs = await cursor.to_list(length=limit)
 
-    collections = ["movies", "users", "reviews", "interactions", "sync_jobs"]
+    collections = ["movies", "users", "reviews", "interactions", "sync_jobs", "chat_sessions"]
     index_summary: list[dict[str, Any]] = []
     for col in collections:
         info = await db[col].index_information()

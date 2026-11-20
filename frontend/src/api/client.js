@@ -111,6 +111,13 @@ export const api = {
   deleteReview: (reviewId) => request(`/reviews/${reviewId}`, { method: 'DELETE' }),
   createInteraction: (payload) => request('/interactions', { method: 'POST', body: payload }),
 
+  // Tito Concierge (MongoDB RAG + Embedded Chat Sessions)
+  assistantStatus: () => request('/assistant/status'),
+  assistantChat: (payload) => request('/assistant/chat', { method: 'POST', body: payload }),
+  assistantGetSession: (sessionId) => request(`/assistant/sessions/${sessionId}`),
+  assistantClearSession: (sessionId) =>
+    request(`/assistant/sessions/${sessionId}`, { method: 'DELETE' }),
+
   // Admin
   getAdminStats: () => request('/admin/stats'),
   getAdminSyncJobs: (params) => request('/admin/sync-jobs', { params }),

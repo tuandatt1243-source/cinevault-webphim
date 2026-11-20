@@ -176,6 +176,38 @@ COLLECTION_VALIDATORS: dict[str, dict[str, Any]] = {
             },
         }
     },
+    "chat_sessions": {
+        "$jsonSchema": {
+            "bsonType": "object",
+            "required": ["session_id", "messages", "created_at", "updated_at"],
+            "properties": {
+                "_id": {"bsonType": "objectId"},
+                "session_id": {"bsonType": "string", "minLength": 4, "maxLength": 120},
+                "user_id": {"bsonType": ["objectId", "null"]},
+                "messages": {
+                    "bsonType": "array",
+                    "items": {
+                        "bsonType": "object",
+                        "required": ["role", "content", "created_at"],
+                        "properties": {
+                            "role": {"enum": ["user", "assistant"]},
+                            "content": {"bsonType": "string", "maxLength": 4000},
+                            "movie_ids": {
+                                "bsonType": "array",
+                                "items": {"bsonType": "string"},
+                            },
+                            "engine": {"bsonType": ["string", "null"]},
+                            "retrieval_ms": {"bsonType": ["double", "int", "null"]},
+                            "created_at": {"bsonType": "date"},
+                        },
+                    },
+                },
+                "last_filters": {"bsonType": ["object", "null"]},
+                "created_at": {"bsonType": "date"},
+                "updated_at": {"bsonType": "date"},
+            },
+        }
+    },
 }
 
 
@@ -228,6 +260,11 @@ COLLECTION_INDEXES: dict[str, list[IndexModel]] = {
     "sync_jobs": [
         IndexModel([("status", ASCENDING), ("created_at", DESCENDING)], name="idx_sync_jobs_status_created"),
         IndexModel([("entity_type", ASCENDING), ("entity_id", ASCENDING), ("created_at", DESCENDING)], name="idx_sync_jobs_entity_created"),
+    ],
+    "chat_sessions": [
+        IndexModel([("session_id", ASCENDING)], unique=True, name="uq_chat_sessions_sid"),
+        IndexModel([("user_id", ASCENDING), ("updated_at", DESCENDING)], name="idx_chat_sessions_user_updated"),
+        IndexModel([("updated_at", ASCENDING)], expireAfterSeconds=604800, name="ttl_chat_sessions_updated"),
     ],
 }
 

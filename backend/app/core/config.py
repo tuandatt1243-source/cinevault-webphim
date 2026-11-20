@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     seed_user_count: int = 220
     seed_review_target: int = 8800
 
+    # Tito Concierge AI (Optional Gemini RAG over MongoDB)
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

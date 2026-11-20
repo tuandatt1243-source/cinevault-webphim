@@ -24,6 +24,7 @@ import { MovieRow } from '../components/MovieRow';
 import { PersonSpotlightDrawer } from '../components/PersonSpotlightDrawer';
 import { PosterImage } from '../components/PosterImage';
 import { ReelsView } from '../components/ReelsView';
+import { TitoConciergeWidget } from '../components/TitoConciergeWidget';
 import { TitoRouletteModal } from '../components/TitoRouletteModal';
 import { TrailerModal } from '../components/TrailerModal';
 import { useAuth } from '../context/AuthContext';
@@ -1269,6 +1270,13 @@ export function CatalogPreviewPage() {
         open={Boolean(trailerMovie)}
         movie={trailerMovie}
         onClose={() => setTrailerMovie(null)}
+      />
+
+      {/* Tito Concierge (MongoDB RAG + Optional Gemini Floating Assistant) */}
+      <TitoConciergeWidget
+        onOpenDetail={openFilmDetail}
+        onPlayTrailer={openTrailer}
+        hidden={view === 'reels' || modalBlockingBackground}
       />
     </div>
   );

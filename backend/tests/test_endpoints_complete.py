@@ -73,7 +73,7 @@ async def test_profile_update_interactions_logout_and_sync_jobs_endpoint(client,
     r_sj = await client.get("/api/v1/admin/sync-jobs", headers=admin_headers)
     assert r_sj.status_code == 200
     body = r_sj.json()
-    assert len(body["indexes"]) == 5
+    assert len(body["indexes"]) == 6
     assert len(body["jobs"]) >= 4
 
     # 6. POST /auth/logout succeeds cleanly
@@ -166,3 +166,53 @@ async def test_discovery_endpoints_decades_roulette_insights_person_and_spoiler(
     assert r_flt.status_code == 200
     assert r_flt.json()["meta"]["total"] == 1
     assert r_flt.json()["items"][0]["title"] == "Memento Test"
+
+
+@pytest.mark.asyncio
+async def test_assistant_mongodb_rag_and_embedded_chat_sessions(client, admin_account, user_account):
+    admin_headers = {"Authorization": f"Bearer {admin_account['token']}"}
+    user_headers = {"Authorization": f"Bearer {user_account['token']}"}
+
+    await client.post(
+        "/api/v1/movies",
+        json={
+            "title": "Primer Test",
+            "overview": "Two engineers accidentally invent time travel in a suburban garage.",
+            "release_year": 2004,
+            "runtime_minutes": 77,
+            "genres": ["Sci-Fi", "Mystery", "Thriller"],
+            "cast": ["Shane Carruth"],
+            "directors": ["Shane Carruth"],
+            "imdb_rating": 6.9,
+        },
+        headers=admin_headers,
+    )
+
+    r_status = await client.get("/api/v1/assistant/status")
+    assert r_status.status_code == 200
+    assert r_status.json()["mode"] in ("mongodb-rag", "gemini-rag")
+
+    # 1. Natural language Vietnamese query -> real MongoDB retrieval
+    r_chat = await client.post(
+        "/api/v1/assistant/chat",
+        json={"message": "Gợi ý phim hack não dưới 100 phút", "lang": "vi"},
+        headers=user_headers,
+    )
+    assert r_chat.status_code == 200
+    chat_body = r_chat.json()
+    sid = chat_body["session_id"]
+    assert len(chat_body["movies"]) >= 1
+    assert chat_body["movies"][0]["runtime_minutes"] <= 100
+    assert chat_body["retrieval_ms"] >= 0
+
+    # 2. Verify Embedded Document persistence in `chat_sessions`
+    r_sess = await client.get(f"/api/v1/assistant/sessions/{sid}")
+    assert r_sess.status_code == 200
+    assert len(r_sess.json()["messages"]) == 2
+    assert r_sess.json()["messages"][0]["role"] == "user"
+    assert r_sess.json()["messages"][1]["role"] == "assistant"
+
+    # 3. Clean delete session
+    r_del = await client.delete(f"/api/v1/assistant/sessions/{sid}")
+    assert r_del.status_code == 200
+    assert (await client.get(f"/api/v1/assistant/sessions/{sid}")).json()["messages"] == []
