@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -23,9 +24,8 @@ logger = logging.getLogger("cinevault.assistant")
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 GEMINI_FALLBACK_MODELS = (
     "gemini-3.5-flash-lite",
-    "gemini-3.1-flash-lite",
-    "gemini-3.8-flash",
     "gemini-3.6-flash",
+    "gemini-3-flash-preview",
 )
 GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 
@@ -37,70 +37,118 @@ def _gemini_model_chain(primary: str) -> list[str]:
             chain.append(m)
     return chain
 
+
+def _gemini_generation_config(model_name: str, base_cfg: dict[str, Any]) -> dict[str, Any]:
+    cfg = dict(base_cfg)
+    # Use minimal thinking on Gemini 3.x Flash models so RAG replies stay snappy (~1.5-2.5s)
+    if model_name.startswith("gemini-3"):
+        cfg["thinkingConfig"] = {"thinkingLevel": "minimal"}
+    return cfg
+
 # Rich Vietnamese & English cinema intent dictionary -> canonical MongoDB genres
+# Uses strict word-boundary matching so short tokens never collide with unrelated words
+# (e.g. "ma" inside "animation" or Vietnamese "mà").
 GENRE_KEYWORDS: list[tuple[tuple[str, ...], list[str]]] = [
     (
         (
-            "hack nao", "xoan nao", "dau tri", "du hanh thoi gian", "giac mo", "vu tru",
-            "khoa hoc vien tuong", "sci-fi", "scifi", "mind-bend", "mind bend", "mindbend",
-            "cyberpunk", "tuong lai", "robot", "ai", "khong gian", "twist", "bi an",
+            "hoat hinh", "anime", "animes", "ghibli", "pixar", "disney",
+            "animation", "animations", "animated", "cartoon", "cartoons",
+        ),
+        ["Animation"],
+    ),
+    (
+        (
+            "kinh di", "phim ma", "ma am", "rung ron", "am anh", "horror", "horrors", "scary",
+            "slasher", "zombie", "zombies", "vampire", "ghost", "supernatural",
+        ),
+        ["Horror"],
+    ),
+    (
+        (
+            "toi pham", "tam ly toi pham", "mafia", "xa hoi den", "sat nhan",
+            "crime", "gangster", "heist", "noir", "film-noir",
+        ),
+        ["Crime", "Film-Noir"],
+    ),
+    (
+        (
+            "giat gan", "cang thang", "trinh tham", "bi an", "thriller", "thrillers",
+            "mystery", "mysteries", "suspense", "detective",
+        ),
+        ["Thriller", "Mystery"],
+    ),
+    (
+        (
+            "khoa hoc vien tuong", "sci-fi", "scifi", "science fiction",
+            "du hanh thoi gian", "vu tru", "cyberpunk", "khong gian",
+            "space", "alien", "aliens", "time travel", "dystopian",
+        ),
+        ["Sci-Fi"],
+    ),
+    (
+        (
+            "hack nao", "xoan nao", "dau tri", "mind-bend", "mind bend",
+            "mindbend", "mind-bending", "plot twist",
         ),
         ["Sci-Fi", "Mystery", "Thriller"],
     ),
     (
         (
-            "cam dong", "buon", "khoc", "sau lang", "chua lanh", "nhan van", "y nghia",
-            "tinh cam", "lang man", "tinh yeu", "romance", "romantic", "emotional",
-            "heartwarming", "gia dinh", "chinh kich", "drama",
+            "hanh dong", "man nhan", "danh nhau", "ban sung", "sieu anh hung",
+            "action", "superhero", "adrenaline",
         ),
-        ["Drama", "Romance", "Family"],
+        ["Action"],
+    ),
+    (
+        ("phieu luu", "tham hiem", "adventure", "adventures"),
+        ["Adventure"],
+    ),
+    (
+        ("chien tranh", "war movie", "war film", "world war", "ww2", "battlefield"),
+        ["War"],
+    ),
+    (
+        ("tinh cam", "lang man", "tinh yeu", "romance", "romantic", "love story"),
+        ["Romance"],
     ),
     (
         (
-            "hanh dong", "man nhan", "danh nhau", "ban sung", "chien tranh", "sieu anh hung",
-            "batman", "phieu luu", "action", "adventure", "war", "adrenaline", "epic",
+            "chinh kich", "cam dong", "sau lang", "chua lanh", "nhan van",
+            "drama", "dramas", "emotional", "heartwarming", "tearjerker",
         ),
-        ["Action", "Adventure", "War"],
+        ["Drama"],
     ),
     (
-        (
-            "kinh di", "ma", "rung ron", "am anh", "sat nhan", "tam ly toi pham", "toi pham",
-            "mafia", "xa hoi den", "trinh tham", "horror", "crime", "noir", "scary", "dark",
-            "giat gan", "cang thang", "thriller",
-        ),
-        ["Horror", "Crime", "Thriller", "Film-Noir"],
+        ("gia dinh", "tre em", "family", "kids"),
+        ["Family"],
     ),
     (
-        (
-            "hoat hinh", "anime", "ghibli", "pixar", "disney", "animation", "cartoon", "tre em",
-        ),
-        ["Animation", "Family", "Fantasy"],
-    ),
-    (
-        (
-            "hai", "vui", "cuoi", "giai tri", "nhe nhang", "thu gian", "comedy", "funny",
-        ),
+        ("phim hai", "hai huoc", "cuoi", "vui nhon", "giai tri", "comedy", "comedies", "funny", "hilarious"),
         ["Comedy"],
     ),
     (
-        ("am nhac", "nhac kich", "ca nhac", "music", "musical", "jazz"),
+        ("am nhac", "nhac kich", "ca nhac", "music", "musical", "musicals", "jazz"),
         ["Music", "Musical"],
     ),
     (
-        ("lich su", "tieu su", "co trang", "co that", "history", "biography"),
+        ("lich su", "tieu su", "co trang", "co that", "history", "historical", "biography", "biopic"),
         ["History", "Biography"],
     ),
     (
-        ("the thao", "bong da", "quyen anh", "boxing", "sport", "sports"),
+        ("the thao", "bong da", "quyen anh", "boxing", "sport", "sports", "racing"),
         ["Sport"],
     ),
     (
-        ("vien tay", "cao boi", "western", "cowboy"),
+        ("vien tay", "cao boi", "western", "westerns", "cowboy"),
         ["Western"],
     ),
     (
         ("gia tuong", "phep thuat", "fantasy", "than thoai"),
         ["Fantasy"],
+    ),
+    (
+        ("tai lieu", "phim tai lieu", "documentary", "documentaries"),
+        ["Documentary"],
     ),
 ]
 
@@ -159,6 +207,11 @@ def _fold_ascii(text: str) -> str:
     return stripped.replace("đ", "d")
 
 
+def _has_phrase(folded_text: str, phrase: str) -> bool:
+    """Match a keyword or multi-word phrase strictly on word boundaries."""
+    return bool(re.search(rf"(?<![a-z0-9]){re.escape(phrase)}(?![a-z0-9])", folded_text))
+
+
 def _extract_local_intent(message: str) -> dict[str, Any]:
     folded = _fold_ascii(message)
     intent: dict[str, Any] = {
@@ -172,14 +225,14 @@ def _extract_local_intent(message: str) -> dict[str, Any]:
         "director": None,
         "actor": None,
         "similar_to": None,
-        "is_more_request": any(p in folded for p in FOLLOWUP_MORE_PHRASES),
-        "wants_shorter": any(p in folded for p in SHORTER_PHRASES),
+        "is_more_request": any(_has_phrase(folded, p) for p in FOLLOWUP_MORE_PHRASES),
+        "wants_shorter": any(_has_phrase(folded, p) for p in SHORTER_PHRASES),
         "raw_query": message.strip(),
     }
 
-    # 1. Detect "giống / tương tự / kiểu / similar to <Movie Title>"
+    # 1. Detect "giống / tương tự / kiểu / similar to / movies like <Movie Title>"
     sim_match = re.search(
-        r"(?:giống|tương tự|kiểu như|kiểu|như phim|similar to|like)\s+([A-Za-z0-9À-ỹ\s:'\-·&]{2,55})",
+        r"(?:giống phim|giống|tương tự|kiểu như|kiểu|như phim|similar to|movies like|films like)\s+([A-Za-z0-9À-ỹ\s:'\-·&]{2,55})",
         message,
         flags=re.IGNORECASE,
     )
@@ -195,10 +248,10 @@ def _extract_local_intent(message: str) -> dict[str, Any]:
         if len(cand) >= 2:
             intent["similar_to"] = cand
 
-    # 2. Detect genres from Vietnamese/English mood vocabulary
+    # 2. Detect genres strictly on word boundaries
     matched_genres: list[str] = []
     for phrases, mapped in GENRE_KEYWORDS:
-        if any(p in folded for p in phrases):
+        if any(_has_phrase(folded, p) for p in phrases):
             for g in mapped:
                 if g not in matched_genres:
                     matched_genres.append(g)
@@ -220,7 +273,7 @@ def _extract_local_intent(message: str) -> dict[str, Any]:
         val = int(min_under.group(1))
         if 40 <= val <= 300:
             intent["max_runtime"] = val
-    elif any(k in folded for k in ("xem gon", "xem nhanh", "phim ngan", "quick watch", "short movie")):
+    elif any(_has_phrase(folded, k) for k in ("xem gon", "xem nhanh", "phim ngan", "quick watch", "short movie")):
         intent["max_runtime"] = 100
 
     if hr_over:
@@ -246,9 +299,9 @@ def _extract_local_intent(message: str) -> dict[str, Any]:
             intent["year_to"] = int(before_y.group(1))
         if after_y:
             intent["year_from"] = int(after_y.group(1))
-        elif any(k in folded for k in ("kinh dien", "co dien", "classic", "xua", "black and white", "den trang")):
+        elif any(_has_phrase(folded, k) for k in ("kinh dien", "co dien", "classic", "phim xua", "black and white", "den trang")):
             intent["year_to"] = 1999
-        elif any(k in folded for k in ("gan day", "hien dai", "moi nhat", "recent", "modern")):
+        elif any(_has_phrase(folded, k) for k in ("gan day", "hien dai", "moi nhat", "recent", "modern")):
             intent["year_from"] = 2010
 
     # 5. Detect rating thresholds
@@ -264,12 +317,12 @@ def _extract_local_intent(message: str) -> dict[str, Any]:
             intent["min_rating"] = val
         elif 5.0 < val <= 10.0:
             intent["min_imdb"] = val
-    elif any(k in folded for k in ("diem cao", "xuat sac", "kiet tac", "hay nhat", "top rated", "masterpiece")):
+    elif any(_has_phrase(folded, k) for k in ("diem cao", "xuat sac", "kiet tac", "hay nhat", "top rated", "masterpiece")):
         intent["min_rating"] = 4.0
 
-    # 6. Detect well-known directors/actors
+    # 6. Detect well-known directors/actors strictly on word boundaries
     for needle, canonical, role in WELL_KNOWN_PEOPLE:
-        if needle in folded:
+        if _has_phrase(folded, needle):
             if role == "director":
                 intent["director"] = canonical
             else:
@@ -289,13 +342,14 @@ async def _enhance_intent_with_gemini(message: str, api_key: str, model: str) ->
         '"director": string|null, "actor": string|null, "similar_to": string|null, "keywords": string[]}\n'
         f"User request: {message}"
     )
-    payload = {
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json", "maxOutputTokens": 220},
-    }
+    base_gen_cfg = {"temperature": 0.1, "responseMimeType": "application/json", "maxOutputTokens": 220}
     async with httpx.AsyncClient(timeout=7.0) as client:
         for candidate_model in _gemini_model_chain(model)[:2]:
             url = f"{GEMINI_API_BASE}/{candidate_model}:generateContent"
+            payload = {
+                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                "generationConfig": _gemini_generation_config(candidate_model, base_gen_cfg),
+            }
             try:
                 resp = await client.post(url, params={"key": api_key}, json=payload)
                 if resp.status_code != 200:
@@ -306,7 +360,7 @@ async def _enhance_intent_with_gemini(message: str, api_key: str, model: str) ->
                 if isinstance(parsed, dict):
                     return parsed
             except Exception as exc:
-                logger.debug("Gemini intent enhancement skipped on %s: %s", candidate_model, exc)
+                logger.debug("Gemini intent enhancement skipped on %s: %s %s", candidate_model, type(exc).__name__, exc)
     return None
 
 
@@ -365,25 +419,46 @@ async def _generate_gemini_reply(
         f"{json.dumps(catalog_context, ensure_ascii=False)}"
     )
 
-    payload = {
-        "systemInstruction": {"parts": [{"text": system_text}]},
-        "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-        "generationConfig": {"temperature": 0.65, "maxOutputTokens": 420},
-    }
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        for candidate_model in _gemini_model_chain(model):
-            url = f"{GEMINI_API_BASE}/{candidate_model}:generateContent"
-            try:
-                resp = await client.post(url, params={"key": api_key}, json=payload)
-                if resp.status_code != 200:
-                    logger.warning("Gemini %s HTTP %s; trying fallback", candidate_model, resp.status_code)
-                    continue
-                data = resp.json()
-                text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-                if text:
-                    return text
-            except Exception as exc:
-                logger.warning("Gemini %s failed (%s); trying fallback", candidate_model, exc)
+    base_gen_cfg = {"temperature": 0.65, "maxOutputTokens": 420}
+    candidates = _gemini_model_chain(model)[:2]
+
+    async def _call_model(client: httpx.AsyncClient, candidate_model: str) -> str | None:
+        url = f"{GEMINI_API_BASE}/{candidate_model}:generateContent"
+        payload = {
+            "systemInstruction": {"parts": [{"text": system_text}]},
+            "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+            "generationConfig": _gemini_generation_config(candidate_model, base_gen_cfg),
+        }
+        try:
+            resp = await client.post(url, params={"key": api_key}, json=payload)
+            if resp.status_code != 200:
+                logger.warning("Gemini %s HTTP %s", candidate_model, resp.status_code)
+                return None
+            data = resp.json()
+            text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+            return text or None
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning("Gemini %s failed (%s: %s)", candidate_model, type(exc).__name__, exc)
+            return None
+
+    async with httpx.AsyncClient(timeout=7.0) as client:
+        # Hedge the top 2 fast models in parallel: first valid 200 wins in ~1-2s,
+        # shielding users from transient single-model 503/latency spikes.
+        pending = {asyncio.create_task(_call_model(client, m)) for m in candidates}
+        try:
+            while pending:
+                done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+                for task in done:
+                    result = task.result()
+                    if result:
+                        return result
+        finally:
+            for task in pending:
+                task.cancel()
+            if pending:
+                await asyncio.gather(*pending, return_exceptions=True)
     return None
 
 
@@ -714,7 +789,7 @@ async def chat_with_concierge(
     # Graceful relaxation if filters were overly narrow
     effective_filter = dict(mongo_filter)
     if matched_count == 0 and len(effective_filter) > 1:
-        for drop_key in ("min_rating", "min_imdb", "release_year", "_id", "runtime_minutes"):
+        for drop_key in ("avg_rating", "imdb_rating", "release_year", "_id", "runtime_minutes"):
             if drop_key in effective_filter:
                 effective_filter.pop(drop_key, None)
                 matched_count = await db.movies.count_documents(effective_filter)

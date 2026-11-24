@@ -187,6 +187,48 @@ async def test_assistant_mongodb_rag_and_embedded_chat_sessions(client, admin_ac
         },
         headers=admin_headers,
     )
+    await client.post(
+        "/api/v1/movies",
+        json={
+            "title": "Spirited Away Test",
+            "overview": "A young girl wanders into a world of spirits.",
+            "release_year": 2001,
+            "runtime_minutes": 125,
+            "genres": ["Animation", "Family", "Fantasy"],
+            "cast": ["Rumi Hiiragi"],
+            "directors": ["Hayao Miyazaki"],
+            "imdb_rating": 8.6,
+        },
+        headers=admin_headers,
+    )
+    await client.post(
+        "/api/v1/movies",
+        json={
+            "title": "Dark Crime Test",
+            "overview": "A gritty crime thriller.",
+            "release_year": 2008,
+            "runtime_minutes": 150,
+            "genres": ["Crime", "Drama"],
+            "cast": ["Actor A"],
+            "directors": ["Director A"],
+            "imdb_rating": 9.0,
+        },
+        headers=admin_headers,
+    )
+
+    # Regression: "animation" and Vietnamese "mà" must NOT match "ma" (Horror/Crime) via substring collision
+    for msg, lang in (("but i want animation film", "en"), ("phim hoạt hình mà hay", "vi")):
+        r_anim = await client.post(
+            "/api/v1/assistant/chat",
+            json={"message": msg, "lang": lang},
+            headers=user_headers,
+        )
+        assert r_anim.status_code == 200
+        anim_body = r_anim.json()
+        assert anim_body["mongo_filter"].get("genres") == {"$in": ["Animation"]}
+        assert len(anim_body["movies"]) >= 1
+        assert all("Animation" in m["genres"] for m in anim_body["movies"])
+        await client.delete(f"/api/v1/assistant/sessions/{anim_body['session_id']}")
 
     r_status = await client.get("/api/v1/assistant/status")
     assert r_status.status_code == 200
